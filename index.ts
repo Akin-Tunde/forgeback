@@ -93,6 +93,9 @@ app.use(
     cookie: { secure: process.env.NODE_ENV === "production" },
   })
 );
+app.get("/", (req, res) => {
+  res.send("🔧 ForgeBot backend is running.");
+});
 
 // Farcaster authentication middleware
 const authenticateFarcaster = async (
