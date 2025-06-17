@@ -1,0 +1,42 @@
+{
+  "name": "base-bundle-tg-trading-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon",
+    "start": "ts-node index.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@farcaster/auth-client": "^0.7.0",
+    "@farcaster/core": "^0.17.1",
+    "@farcaster/frame-sdk": "^0.0.63",
+    "@farcaster/quick-auth": "^0.0.6",
+    "@supabase/supabase-js": "^2.50.0",
+    "axios": "^1.10.0",
+    "better-sqlite3": "^11.10.0",
+    "crypto-js": "^4.2.0",
+    "dotenv": "^16.5.0",
+    "express": "^5.1.0",
+    "express-session": "^1.18.1",
+    "viem": "^2.27.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/crypto-js": "^4.2.2",
+    "@types/express": "^5.0.3",
+    "@types/express-session": "^1.18.2",
+    "@types/node": "^22.14.1",
+    "nodemon": "^3.1.9",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  },
+  "pnpm": {
+    "ignoredBuiltDependencies": [
+      "better-sqlite3"
+    ]
+  }
+}
