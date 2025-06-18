@@ -50,7 +50,7 @@ export async function verifyFarcasterSignature(req: Request): Promise<boolean> {
       return false;
     }
 
-    (req.session as SessionData).userId = verifyResult.fid.toString();
+    (req.sessionfid).userId = verifyResult.fid.toString();
     return true;
   } catch (error) {
     console.error("Error verifying Farcaster signature:", error);
