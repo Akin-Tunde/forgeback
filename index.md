@@ -80,8 +80,17 @@ if (!process.env.SESSION_SECRET) {
   process.exit(1);
 }
 
-// Create Express app
+// ✅ Create Express app
 const app = express();
+
+// ✅ Use CORS middleware BEFORE anything else
+app.use(
+  cors({
+    origin: "https://mini-testf.netlify.app",
+    credentials: true,
+  })
+);;
+
 
 // Middleware
 app.use(express.json());
@@ -96,6 +105,7 @@ app.use(
 app.get("/", (req, res) => {
   res.send("🔧 ForgeBot backend is running.");
 });
+
 
 // Farcaster authentication middleware
 const authenticateFarcaster = async (

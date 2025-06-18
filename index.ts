@@ -1,22 +1,14 @@
 import express, { Request, Response, NextFunction } from "express";
 import session from "express-session";
 import dotenv from "dotenv";
+import cors from "cors";
+
 import { initDatabase, closeDatabase } from "./src/lib/database";
 import { verifyEncryptionKey } from "./src/lib/encryption";
 import { CommandContext, SessionData } from "./src/types/commands";
 import { verifyFarcasterSignature } from "./src/lib/farcaster";
 import { getWallet } from "./src/lib/token-wallet"; // Import getWallet
 
-// Extend express-session to include SessionData
-declare module "express-session" {
-  interface SessionData {
-    userId: string;
-    currentAction?: string;
-    tempData: Record<string, any>;
-    settings: { slippage: number; gasPriority: string };
-    walletAddress?: string;
-  }
-}
 
 // Import commands
 import { startHandler, helpHandler } from "./src/commands/start-help";
@@ -60,6 +52,17 @@ import {
   handleWithdrawConfirmation,
 } from "./src/commands/withdraw";
 
+// Extend express-session to include SessionData
+declare module "express-session" {
+  interface SessionData {
+    userId: string;
+    currentAction?: string;
+    tempData: Record<string, any>;
+    settings: { slippage: number; gasPriority: string };
+    walletAddress?: string;
+  }
+}
+
 // Load environment variables
 dotenv.config();
 
@@ -80,8 +83,21 @@ if (!process.env.SESSION_SECRET) {
   process.exit(1);
 }
 
-// Create Express app
+// ✅ Create Express app
 const app = express();
+
+// ✅ Use CORS middleware BEFORE anything else
+app.use(
+  cors({
+    origin: [
+      "https://mini-testf.netlify.app",
+      "http://localhost:3000",
+      "http://localhost:5173", // Add this if your frontend runs on port 5173
+    ],
+    credentials: true,
+  })
+);
+
 
 // Middleware
 app.use(express.json());
