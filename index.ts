@@ -7,7 +7,7 @@ import { Session } from "express-session";
 import { initDatabase, closeDatabase } from "./src/lib/database";
 import { verifyEncryptionKey } from "./src/lib/encryption";
 import { CommandContext, SessionData } from "./src/types/commands";
-import { verifyFarcasterSignature } from "./src/lib/farcaster";
+import { verifyFarcasterSignature, getFarcasterNonce } from "./src/lib/farcaster";
 import { getWallet } from "./src/lib/token-wallet"; // Import getWallet
 import { UserSettings } from './types/config';
 
@@ -506,6 +506,16 @@ app.post(
     return;
   }
 );
+
+app.get("/api/nonce", (req: Request, res: Response): void => {
+  try {
+    const nonce = getFarcasterNonce();
+    res.json({ nonce });
+  } catch (error) {
+    console.error("Error generating nonce:", error);
+    res.status(500).json({ response: "Failed to generate nonce" });
+  }
+});
 
 app.post(
   "/api/withdraw",
