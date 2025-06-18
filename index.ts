@@ -640,6 +640,9 @@ app.post(
 // index.ts
 
 
+// index.ts
+
+
 app.post(
   "/api/chat/command",
   authenticateFarcaster,
@@ -710,10 +713,30 @@ app.post(
       case "/help":
         result = await helpHandler.handler();
         break;
-      case "/create": // Add this case
+      case "/create":
         result = await createHandler.handler({
           session: req.session as SessionData,
         });
+        break;
+      case "/import":
+        result = await importHandler.handler({
+          session: req.session as SessionData,
+          wallet: req.session.userId
+            ? (await getWallet(req.session.userId)) || undefined
+            : undefined,
+        });
+        break;
+      case "/export":
+        result = await exportHandler.handler({
+          session: req.session as SessionData,
+          wallet: req.session.userId
+            ? (await getWallet(req.session.userId)) || undefined
+            : undefined,
+        });
+        break;
+      case "/cancel":
+        (req.session as SessionData).currentAction = undefined;
+        result = { response: "Operation cancelled." };
         break;
       default:
         result = { response: `Unknown command: ${command}. Please try /help.` };
@@ -724,18 +747,36 @@ app.post(
   }
 );
 
-// Callback query handler (unchanged)
 app.post(
   "/api/callback",
   authenticateFarcaster,
   ensureSessionData,
   async (req: Request, res: Response): Promise<void> => {
-    const { callback } = req.body;
+    const { callback, args } = req.body;
     const wallet = req.session.userId
       ? (await getWallet(req.session.userId)) || undefined
       : undefined;
     let result;
-    if (callback === "check_balance") {
+
+    if ((req.session as SessionData).currentAction === "import_wallet" && args) {
+      result = await handlePrivateKeyInput({
+        session: req.session as SessionData,
+        args,
+        wallet,
+      });
+    } else if ((req.session as SessionData).currentAction === "export_wallet") {
+      if (callback === "confirm_yes" || callback === "confirm_no") {
+        result = await handleExportConfirmation(
+          {
+            session: req.session as SessionData,
+            wallet,
+          },
+          callback === "confirm_yes"
+        );
+      } else {
+        result = { response: "❌ Invalid callback for export confirmation." };
+      }
+    } else if (callback === "check_balance") {
       result = await balanceHandler.handler({
         session: req.session as SessionData,
         wallet,
@@ -798,8 +839,10 @@ app.post(
       req.session.walletAddress = undefined;
       result = await importHandler.handler({
         session: req.session as SessionData,
+        wallet,
       });
     } else if (callback === "cancel_import_wallet") {
+      (req.session as SessionData).currentAction = undefined;
       result = {
         response: "Operation cancelled. Your existing wallet remains unchanged.",
       };
@@ -810,7 +853,6 @@ app.post(
     return;
   }
 );
-
 // Start server
 const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, () => {
