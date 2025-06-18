@@ -14,30 +14,33 @@ export const startHandler = {
   handler: async ({ session }: CommandContext) => {
     try {
       const userId = session.userId;
+      console.log("startHandler: userId =", userId); // Log userId
       if (!userId) {
+        console.log("startHandler: No userId found in session");
         return {
           response: "❌ Unable to identify user. Please try again later.",
         };
       }
 
-      const existingUser = await getUserByTelegramId(userId); // ✅ Await
+      const existingUser = await getUserByTelegramId(userId);
+      console.log("startHandler: existingUser =", existingUser); // Log user lookup result
 
       if (!existingUser) {
-        await createUser(userId, userId, undefined, undefined, undefined); // ✅ Await
+        console.log("startHandler: Creating new user for userId =", userId);
+        await createUser(userId, userId, undefined, undefined, undefined);
         await saveUserSettings(userId, {
           slippage: 1.0,
           gasPriority: "medium",
-        }); // ✅ Await
-
+        });
         return {
           response: HELP_MESSAGE,
         };
       } else {
-        const settings = await getUserSettings(userId); // ✅ Await
+        const settings = await getUserSettings(userId);
+        console.log("startHandler: settings =", settings); // Log settings
         if (settings) {
           session.settings = settings;
         }
-
         return {
           response: `🤖 Welcome back to Base MEV-Protected Trading Bot!\n\nWhat would you like to do today?`,
           buttons: [
