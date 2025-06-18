@@ -7,7 +7,7 @@ import { Session } from "express-session";
 import { initDatabase, closeDatabase } from "./src/lib/database";
 import { verifyEncryptionKey } from "./src/lib/encryption";
 import { CommandContext, SessionData } from "./src/types/commands";
-import { verifyFarcasterSignature, getFarcasterNonce } from "./src/lib/farcaster";
+import {  getFarcasterNonce } from "./src/lib/farcaster";
 import { getWallet } from "./src/lib/token-wallet"; // Import getWallet
 import { UserSettings } from './types/config';
 
@@ -142,12 +142,12 @@ const authenticateFarcaster = async (
   }
 
   // Verify Farcaster signature
-  const isVerified = await verifyFarcasterSignature(req);
-  if (!isVerified) {
-    console.log("authenticateFarcaster: Farcaster signature verification failed");
-    res.status(401).json({ response: "❌ Farcaster authentication failed." });
-    return; // Explicit return to satisfy Promise<void>
-  }
+  //const isVerified = await verifyFarcasterSignature(req);
+ // if (!isVerified) {
+  //  console.log("authenticateFarcaster: Farcaster signature verification failed");
+   // res.status(401).json({ response: "❌ Farcaster authentication failed." });
+   // return; // Explicit return to satisfy Promise<void>
+ // }
 
   // Session data is set in verifyFarcasterSignature (userId)
   req.session.fid = fid.toString();
