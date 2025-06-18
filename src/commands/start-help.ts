@@ -1,7 +1,7 @@
 import { CommandContext } from "../types/commands";
 import {
   createUser,
-  getUserByTelegramId,
+  getUserByfid,
   getUserSettings,
   saveUserSettings,
 } from "../lib/database";
@@ -22,7 +22,7 @@ export const startHandler = {
         };
       }
 
-      const existingUser = await getUserByTelegramId(userId);
+      const existingUser = await getUserByfid(userId);
       console.log("startHandler: existingUser =", existingUser); // Log user lookup result
 
       if (!existingUser) {

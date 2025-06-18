@@ -8,7 +8,7 @@ const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 // Define types for database rows
 type UserRow = {
   userId: string;
-  telegramId: string;
+  fid: string;
   username: string | null;
   firstName: string | null;
   lastName: string | null;
@@ -50,17 +50,17 @@ export function initDatabase(): void {
 // User operations
 export async function createUser(
   userId: string,
-  telegramId: string,
+  fid: string,
   username?: string,
   firstName?: string,
   lastName?: string
 ): Promise<void> {
-   console.log("createUser: Creating user with telegramId =", telegramId, "userId =", userId);
+   console.log("createUser: Creating user with fid =", fid, "userId =", userId);
   const { error } = await supabase
     .from(DB_TABLES.USERS)
     .insert({
       userId,
-      telegramId,
+      fid,
       username,
       firstName,
       lastName,
@@ -74,11 +74,11 @@ export async function createUser(
   }
 }
 
-export async function getUserByTelegramId(telegramId: string): Promise<UserRow | undefined> {
+export async function getUserByfid(fid: string): Promise<UserRow | undefined> {
   const { data, error } = await supabase
     .from(DB_TABLES.USERS)
     .select('*')
-    .eq('telegramId', telegramId)
+    .eq('fid', fid)
     .single();
 
   if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found
