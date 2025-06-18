@@ -115,24 +115,31 @@ app.get("/", (req, res) => {
 
 
 // Farcaster authentication middleware
-const authenticateFarcaster = async (
+const authenticateFarcaster = (
   req: Request,
   res: Response,
   next: NextFunction
-): Promise<void> => {
-  const { user, fid } = req.body; // Add fid from request body
-  console.log("authenticateFarcaster: fid =", fid); // Log fid
-  if (user?.nonce && user?.signature && user?.message) {
-    const isValid = await verifyFarcasterSignature(req);
-    if (!isValid) {
-      res.status(401).json({ response: "❌ Farcaster authentication failed." });
-      return;
-    }
-    // Set session.userId to fid if authenticated
-    if (fid) {
-      req.session.userId = fid.toString();
-      console.log("authenticateFarcaster: Set session.userId =", req.session.userId);
-    }
+): void => {
+  const fid = req.body.fid;
+  console.log("authenticateFarcaster: fid =", fid);
+
+  if (!fid) {
+    return;
+  }
+
+  // Set session.userId to fid if authenticated
+  if (fid) {
+    req.session.userId = fid.toString();
+    console.log("authenticateFarcaster: Set session.userId =", req.session.userId);
+    // Explicitly save the session
+    req.session.save((err) => {
+      if (err) {
+        console.error("Error saving session:", err);
+        return res.status(500).send("Failed to save session");
+      }
+      next();
+    });
+    return;
   }
   next();
 };
@@ -143,6 +150,7 @@ const ensureSessionData = (
   res: Response,
   next: NextFunction
 ): void => {
+  console.log("ensureSessionData: req.session.userId =", req.session.userId, "req.body.fid =", req.body.fid);
   if (!req.session.userId && !req.body.fid) {
     req.session.userId = `guest_${Date.now()}`;
     console.log("ensureSessionData: Set guest userId =", req.session.userId);
@@ -154,7 +162,6 @@ const ensureSessionData = (
   }
   next();
 };
-
 
 
 // API Routes
