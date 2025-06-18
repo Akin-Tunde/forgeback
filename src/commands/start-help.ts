@@ -5,6 +5,7 @@ import {
   getUserByfid,
   getUserSettings,
   saveUserSettings,
+  getWalletByUserId, // Assume this function exists
 } from "../lib/database";
 
 const GETTING_STARTED_MESSAGE = `🤖 Welcome to Base MEV-Protected Trading Bot!\n\n🧱 Getting Started\n- /create — Create a new wallet\n- /import — Import an existing wallet\n\nStart by creating or importing a wallet to begin trading.`;
@@ -51,30 +52,48 @@ export const startHandler: CommandHandler = {
             ],
           ],
         };
-      } else {
-        const settings = await getUserSettings(userId);
-        console.log("startHandler: settings =", settings);
-        if (settings) {
-          session.settings = settings;
-        }
+      }
+
+      // Check if user has a wallet
+      const wallet = await getWalletByUserId(userId);
+      console.log("startHandler: wallet =", wallet);
+
+      if (!wallet) {
+        console.log("startHandler: No wallet found for userId =", userId);
         return {
-          response: `🤖 Welcome back to Base MEV-Protected Trading Bot, ${existingUser.username || existingUser.firstName || "User"}!\n\nWhat would you like to do today?`,
+          response: GETTING_STARTED_MESSAGE,
           buttons: [
             [
-              { label: "💰 Balance", callback: "check_balance" },
-              { label: "📊 History", callback: "check_history" },
-            ],
-            [
-              { label: "💱 Buy Token", callback: "buy_token" },
-              { label: "💱 Sell Token", callback: "sell_token" },
-            ],
-            [
-              { label: "⚙️ Settings", callback: "open_settings" },
-              { label: "📋 Help", callback: "help" },
+              { label: "Create Wallet", callback: "/create" },
+              { label: "Import Wallet", callback: "/import" },
             ],
           ],
         };
       }
+
+      // User has a wallet, show full buttons
+      const settings = await getUserSettings(userId);
+      console.log("startHandler: settings =", settings);
+      if (settings) {
+        session.settings = settings;
+      }
+      return {
+        response: `🤖 Welcome back to Base MEV-Protected Trading Bot, ${existingUser.username || existingUser.firstName || "User"}!\n\nWhat would you like to do today?`,
+        buttons: [
+          [
+            { label: "💰 Balance", callback: "check_balance" },
+            { label: "📊 History", callback: "check_history" },
+          ],
+          [
+            { label: "💱 Buy Token", callback: "buy_token" },
+            { label: "💱 Sell Token", callback: "sell_token" },
+          ],
+          [
+            { label: "⚙️ Settings", callback: "open_settings" },
+            { label: "📋 Help", callback: "help" },
+          ],
+        ],
+      };
     } catch (error) {
       console.error("Error in start command:", error);
       return { response: "❌ An error occurred. Please try again later." };
