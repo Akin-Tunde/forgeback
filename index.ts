@@ -120,12 +120,18 @@ const authenticateFarcaster = async (
   res: Response,
   next: NextFunction
 ): Promise<void> => {
-  const { user } = req.body;
+  const { user, fid } = req.body; // Add fid from request body
+  console.log("authenticateFarcaster: fid =", fid); // Log fid
   if (user?.nonce && user?.signature && user?.message) {
     const isValid = await verifyFarcasterSignature(req);
     if (!isValid) {
       res.status(401).json({ response: "❌ Farcaster authentication failed." });
       return;
+    }
+    // Set session.userId to fid if authenticated
+    if (fid) {
+      req.session.userId = fid.toString();
+      console.log("authenticateFarcaster: Set session.userId =", req.session.userId);
     }
   }
   next();
@@ -137,15 +143,17 @@ const ensureSessionData = (
   res: Response,
   next: NextFunction
 ): void => {
-  if (!req.session.userId) {
+  if (!req.session.userId && !req.body.fid) {
     req.session.userId = `guest_${Date.now()}`;
+    console.log("ensureSessionData: Set guest userId =", req.session.userId);
+  }
+  if (!req.session.currentAction) {
     req.session.currentAction = undefined;
     req.session.tempData = {};
     req.session.settings = { slippage: 1.0, gasPriority: "medium" };
   }
   next();
 };
-
 
 
 

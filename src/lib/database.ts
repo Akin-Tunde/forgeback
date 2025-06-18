@@ -55,6 +55,7 @@ export async function createUser(
   firstName?: string,
   lastName?: string
 ): Promise<void> {
+   console.log("createUser: Creating user with telegramId =", telegramId, "userId =", userId);
   const { error } = await supabase
     .from(DB_TABLES.USERS)
     .insert({
