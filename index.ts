@@ -150,6 +150,7 @@ const authenticateFarcaster = async (
  // }
 
   // Session data is set in verifyFarcasterSignature (userId)
+  const userId = req.session.userId;
   req.session.fid = fid.toString();
   req.session.username = username || undefined;
   req.session.displayName = displayName || undefined;
