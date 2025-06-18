@@ -1,12 +1,10 @@
-// src/lib/farcaster.ts
 import {
   createAppClient,
   viemConnector,
   generateNonce,
 } from "@farcaster/auth-client";
 import { Request } from "express";
-import { Session } from "express-session";
-import { SessionData } from "../types/commands";
+import { SessionData } from "../types/commands"; // Import SessionData
 
 // Configuration
 const FARCSTER_DOMAIN = process.env.FARCSTER_DOMAIN || "mini-testf.netlify.app";
@@ -19,52 +17,46 @@ const farcasterClient = createAppClient({
   ethereum: viemConnector({ rpcUrl: BASE_RPC_URL }),
 });
 
-// Extend Request interface
-interface AuthRequest extends Request {
-  session: Session & Partial<SessionData>;
-}
-
 // Verify Farcaster signature
-//export async function verifyFarcasterSignature(req: AuthRequest): Promise<boolean> {
-  //try {
-   // console.log("verifyFarcasterSignature: req.body =", JSON.stringify(req.body, null, 2)); // Add logging
-    //const { user } = req.body;
-   // if (!user?.nonce || !user?.signature || !user?.message) {
-     // console.error("Missing Farcaster auth data", { user });
-      //return false;
-    //}
+export async function verifyFarcasterSignature(req: Request): Promise<boolean> {
+  try {
+    const { user } = req.body;
+    if (!user?.nonce || !user?.signature || !user?.message) {
+      console.error("Missing Farcaster auth data");
+      return false;
+    }
 
-    //const signatureHex = user.signature.startsWith("0x")
-     // ? user.signature
-     // : (`0x${user.signature}` as const);
+    const signatureHex = user.signature.startsWith("0x")
+      ? user.signature
+      : (`0x${user.signature}` as const);
 
-    //const verifyResult = await farcasterClient.verifySignInMessage({
-      //nonce: user.nonce,
-      //message: user.message,
-      //signature: signatureHex,
-      //domain: FARCSTER_DOMAIN,
-    //});
+    const verifyResult = await farcasterClient.verifySignInMessage({
+      nonce: user.nonce,
+      message: user.message,
+      signature: signatureHex,
+      domain: FARCSTER_DOMAIN,
+    });
 
-    //if (verifyResult.isError) {
-     // console.error("Farcaster verification failed:", verifyResult.error);
-     // return false;
-   // }
+    if (verifyResult.isError) {
+      console.error("Farcaster verification failed:", verifyResult.error);
+      return false;
+    }
 
-    //if (!verifyResult.success || !verifyResult.fid) {
-    //  console.error(
-//        "Farcaster verification failed: success is false or fid is missing",
-  //      verifyResult
-    //  );
-      //return false;
-   // }
+    if (!verifyResult.success || !verifyResult.fid) {
+      console.error(
+        "Farcaster verification failed: success is false or fid is missing",
+        verifyResult
+      );
+      return false;
+    }
 
-    //req.session.userId = verifyResult.fid.toString();
-    //return true;
-  //} catch (error) {
-   // console.error("Error verifying Farcaster signature:", error);
-   // return false;
- // }
-//}
+    (req.session as SessionData).userId = verifyResult.fid.toString();
+    return true;
+  } catch (error) {
+    console.error("Error verifying Farcaster signature:", error);
+    return false;
+  }
+}
 
 // Get nonce for client authentication
 export function getFarcasterNonce(): string {

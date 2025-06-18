@@ -2,7 +2,6 @@ import { Address } from "viem";
 
 export interface WalletData {
   address: Address;
-  userId?: string;
   encryptedPrivateKey: string;
   type: "imported" | "generated";
   createdAt: number;

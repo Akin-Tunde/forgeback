@@ -2,14 +2,13 @@ import express, { Request, Response, NextFunction } from "express";
 import session from "express-session";
 import dotenv from "dotenv";
 import cors from "cors";
-import { Session } from "express-session";
 
 import { initDatabase, closeDatabase } from "./src/lib/database";
 import { verifyEncryptionKey } from "./src/lib/encryption";
 import { CommandContext, SessionData } from "./src/types/commands";
-import {  getFarcasterNonce } from "./src/lib/farcaster";
+import { verifyFarcasterSignature } from "./src/lib/farcaster";
 import { getWallet } from "./src/lib/token-wallet"; // Import getWallet
-import { UserSettings } from './types/config';
+
 
 // Import commands
 import { startHandler, helpHandler } from "./src/commands/start-help";
@@ -59,7 +58,8 @@ declare module "express-session" {
     userId: string;
     currentAction?: string;
     tempData: Record<string, any>;
-  settings?: UserSettings; // Use UserSettings
+    settings: { slippage: number; 
+    gasPriority: string };
     walletAddress?: string;
     fid?: string;
   username?: string; // Added
@@ -67,9 +67,6 @@ declare module "express-session" {
   }
 }
 
-interface AuthRequest extends Request {
-  session: Session & Partial<SessionData>;
-}
 // Load environment variables
 dotenv.config();
 
@@ -123,12 +120,11 @@ app.get("/", (req, res) => {
 
 // Farcaster authentication middleware
 
-
-const authenticateFarcaster = async (
-  req: AuthRequest,
+const authenticateFarcaster = (
+  req: Request,
   res: Response,
   next: NextFunction
-): Promise<void> => {
+): void => {
   const fid = req.body.fid;
   const username = req.body.username;
   const displayName = req.body.displayName;
@@ -138,39 +134,29 @@ const authenticateFarcaster = async (
 
   if (!fid) {
     console.log("authenticateFarcaster: No FID provided, skipping authentication");
-    return next();
+    return next(); // Proceed without setting session data
   }
 
-  // Verify Farcaster signature
-  //const isVerified = await verifyFarcasterSignature(req);
- // if (!isVerified) {
-  //  console.log("authenticateFarcaster: Farcaster signature verification failed");
-   // res.status(401).json({ response: "❌ Farcaster authentication failed." });
-   // return; // Explicit return to satisfy Promise<void>
- // }
-
-  // Session data is set in verifyFarcasterSignature (userId)
-  const userId = req.session.userId;
+  // Set session data
+  req.session.userId = fid.toString();
   req.session.fid = fid.toString();
-  req.session.username = username || undefined;
+  req.session.username = username || undefined; // Store undefined if not provided
   req.session.displayName = displayName || undefined;
   console.log("authenticateFarcaster: Set session.userId =", req.session.userId);
   console.log("authenticateFarcaster: Set session.fid =", req.session.fid);
   console.log("authenticateFarcaster: Set session.username =", req.session.username);
   console.log("authenticateFarcaster: Set session.displayName =", req.session.displayName);
 
+  // Explicitly save the session
   req.session.save((err) => {
     if (err) {
       console.error("Error saving session:", err);
-      res.status(500).json({ response: "Failed to save session" });
-      return; // Return to avoid calling next()
+      return res.status(500).send("Failed to save session");
     }
     next();
   });
 };
-
 // Initialize session data middleware
-// src/app.ts
 const ensureSessionData = (
   req: Request,
   res: Response,
@@ -184,14 +170,11 @@ const ensureSessionData = (
   if (!req.session.currentAction) {
     req.session.currentAction = undefined;
     req.session.tempData = {};
-    req.session.settings = {
-      userId: req.session.userId || `guest_${Date.now()}`, // Set userId
-      slippage: 1.0,
-      gasPriority: "medium",
-    };
+    req.session.settings = { slippage: 1.0, gasPriority: "medium" };
   }
   next();
 };
+
 
 // API Routes
 app.post(
@@ -200,7 +183,7 @@ app.post(
   ensureSessionData,
   async (req: Request, res: Response): Promise<void> => {
     const result = await startHandler.handler({
-      session: req.session,
+      session: req.session as SessionData,
     });
     res.json(result);
     return;
@@ -219,7 +202,7 @@ app.post(
   ensureSessionData,
   async (req: Request, res: Response): Promise<void> => {
     const result = await walletHandler.handler({
-      session: req.session,
+      session: req.session as SessionData,
     });
     res.json(result);
     return;
@@ -232,7 +215,7 @@ app.post(
   ensureSessionData,
   async (req: Request, res: Response): Promise<void> => {
     const result = await createHandler.handler({
-      session: req.session,
+      session: req.session as SessionData,
     });
     res.json(result);
     return;
@@ -252,17 +235,17 @@ app.post(
     if (callback === "confirm_import_wallet") {
       req.session.walletAddress = undefined;
       result = await importHandler.handler({
-        session: req.session,
+        session: req.session as SessionData,
         wallet, // Pass wallet, though importHandler itself might not use it directly for this path
       });
     } else if (req.session.currentAction === "import_wallet") {
       result = await handlePrivateKeyInput({
-        session: req.session,
+        session: req.session as SessionData,
         args,
       });
     } else {
       result = await importHandler.handler({
-        session: req.session,
+        session: req.session as SessionData,
         wallet,
       });
     }
@@ -283,12 +266,12 @@ app.post(
     let result;
     if (callback === "confirm_yes" || callback === "confirm_no") {
       result = await handleExportConfirmation(
-        { session: req.session, wallet },
+        { session: req.session as SessionData, wallet },
         callback === "confirm_yes"
       );
     } else {
       result = await exportHandler.handler({
-        session: req.session,
+        session: req.session as SessionData,
         wallet,
       });
     }
@@ -303,7 +286,7 @@ app.post(
   ensureSessionData,
   async (req: Request, res: Response): Promise<void> => {
     const result = await balanceHandler.handler({
-      session: req.session,
+      session: req.session as SessionData,
       wallet: req.session.userId
         ? (await getWallet(req.session.userId)) || undefined
         : undefined,
@@ -329,13 +312,13 @@ app.post(
         | "week"
         | "month";
       result = await handleTimeframeChange({
-        session: req.session,
+        session: req.session as SessionData,
         wallet,
         args: timeframe,
       });
     } else {
       result = await historyHandler.handler({
-        session: req.session,
+        session: req.session as SessionData,
         wallet,
       });
     }
@@ -357,30 +340,30 @@ app.post(
     if (callback?.startsWith("token_")) {
       const tokenSymbol = callback.replace("token_", "");
       result = await handleTokenSelection({
-        session: req.session,
+        session: req.session as SessionData,
         wallet,
         args: tokenSymbol,
       });
     } else if (req.session.currentAction === "buy_custom_token") {
       result = await handleCustomTokenInput({
-        session: req.session,
+        session: req.session as SessionData,
         wallet,
         args,
       });
     } else if (req.session.currentAction === "buy_amount") {
       result = await handleBuyAmountInput({
-        session: req.session,
+        session: req.session as SessionData,
         wallet,
         args,
       });
     } else if (callback === "confirm_yes" || callback === "confirm_no") {
       result = await handleBuyConfirmation(
-        { session: req.session, wallet },
+        { session: req.session as SessionData, wallet },
         callback === "confirm_yes"
       );
     } else {
       result = await buyHandler.handler({
-        session: req.session,
+        session: req.session as SessionData,
         wallet,
       });
     }
@@ -402,30 +385,30 @@ app.post(
     if (callback?.startsWith("sell_token_")) {
       const tokenAddress = callback.replace("sell_token_", "");
       result = await handleSellTokenSelection({
-        session: req.session,
+        session: req.session as SessionData,
         wallet,
         args: tokenAddress,
       });
     } else if (req.session.currentAction === "sell_custom_token") {
       result = await handleSellCustomTokenInput({
-        session: req.session,
+        session: req.session as SessionData,
         wallet,
         args,
       });
     } else if (req.session.currentAction === "sell_amount") {
       result = await handleSellAmountInput({
-        session: req.session,
+        session: req.session as SessionData,
         wallet,
         args,
       });
     } else if (callback === "confirm_yes" || callback === "confirm_no") {
       result = await handleSellConfirmation(
-        { session: req.session, wallet },
+        { session: req.session as SessionData, wallet },
         callback === "confirm_yes"
       );
     } else {
       result = await sellHandler.handler({
-        session: req.session,
+        session: req.session as SessionData,
         wallet,
       });
     }
@@ -447,13 +430,13 @@ app.post(
         | "slippage"
         | "gasPriority";
       result = await handleSettingsOption(
-        { session: req.session },
+        { session: req.session as SessionData },
         option
       );
     } else if (callback?.startsWith("slippage_")) {
       const slippage = parseFloat(callback.replace("slippage_", ""));
       result = await updateSlippage(
-        { session: req.session },
+        { session: req.session as SessionData },
         slippage
       );
     } else if (callback?.startsWith("gas_")) {
@@ -462,7 +445,7 @@ app.post(
         | "medium"
         | "high";
       result = await updateGasPriority(
-        { session: req.session },
+        { session: req.session as SessionData },
         priority
       );
     } else if (callback === "back") {
@@ -483,7 +466,7 @@ app.post(
       };
     } else {
       result = await settingsHandler.handler({
-        session: req.session,
+        session: req.session as SessionData,
       });
     }
     res.json(result);
@@ -498,7 +481,7 @@ app.post(
   async (req: Request, res: Response): Promise<void> => {
     const result = await depositHandler.handler({
       // depositHandler might need wallet to display address
-      session: req.session,
+      session: req.session as SessionData,
       wallet: req.session.userId
         ? (await getWallet(req.session.userId)) || undefined
         : undefined,
@@ -507,16 +490,6 @@ app.post(
     return;
   }
 );
-
-app.get("/api/nonce", (req: Request, res: Response): void => {
-  try {
-    const nonce = getFarcasterNonce();
-    res.json({ nonce });
-  } catch (error) {
-    console.error("Error generating nonce:", error);
-    res.status(500).json({ response: "Failed to generate nonce" });
-  }
-});
 
 app.post(
   "/api/withdraw",
@@ -530,24 +503,24 @@ app.post(
     let result;
     if (callback?.startsWith("withdraw_confirm_")) {
       result = await handleWithdrawConfirmation(
-        { session: req.session, wallet },
+        { session: req.session as SessionData, wallet },
         callback === "withdraw_confirm_true"
       );
     } else if (req.session.currentAction === "withdraw_amount") {
       result = await handleWithdrawAmount({
-        session: req.session,
+        session: req.session as SessionData,
         wallet,
         args,
       });
     } else if (req.session.currentAction === "withdraw_address") {
       result = await handleWithdrawAddress({
-        session: req.session,
+        session: req.session as SessionData,
         wallet,
         args,
       });
     } else {
       result = await withdrawHandler.handler({
-        session: req.session,
+        session: req.session as SessionData,
         wallet,
       });
     }
@@ -587,49 +560,49 @@ app.post(
     switch (req.session.currentAction) {
       case "import_wallet":
         result = await handlePrivateKeyInput({
-          session: req.session,
+          session: req.session as SessionData,
           wallet, // Though likely not used by this specific handler
           args,
         });
         break;
       case "buy_custom_token":
         result = await handleCustomTokenInput({
-          session: req.session,
+          session: req.session as SessionData,
           wallet,
           args,
         });
         break;
       case "buy_amount":
         result = await handleBuyAmountInput({
-          session: req.session,
+          session: req.session as SessionData,
           wallet,
           args,
         });
         break;
       case "sell_custom_token":
         result = await handleSellCustomTokenInput({
-          session: req.session,
+          session: req.session as SessionData,
           wallet,
           args,
         });
         break;
       case "sell_amount":
         result = await handleSellAmountInput({
-          session: req.session,
+          session: req.session as SessionData,
           wallet,
           args,
         });
         break;
       case "withdraw_address":
         result = await handleWithdrawAddress({
-          session: req.session,
+          session: req.session as SessionData,
           wallet,
           args,
         });
         break;
       case "withdraw_amount":
         result = await handleWithdrawAmount({
-          session: req.session,
+          session: req.session as SessionData,
           wallet,
           args,
         });
@@ -683,12 +656,12 @@ console.log("Session userId:", req.session.userId);
     switch (command) {
       case "/start":
         result = await startHandler.handler({
-          session: req.session, // Remove 'as SessionData'
+          session: req.session as SessionData,
         });
         break;
       case "/balance":
         result = await balanceHandler.handler({
-          session: req.session,
+          session: req.session as SessionData,
           wallet: req.session.userId
             ? (await getWallet(req.session.userId)) || undefined
             : undefined,
@@ -702,7 +675,7 @@ console.log("Session userId:", req.session.userId);
         // the initial handler (e.g., buyHandler.handler) will be called, which
         // typically returns buttons for the next step.
         result = await buyHandler.handler({
-          session: req.session,
+          session: req.session as SessionData,
           wallet: req.session.userId
             ? (await getWallet(req.session.userId)) || undefined
             : undefined,
@@ -710,7 +683,7 @@ console.log("Session userId:", req.session.userId);
         break;
       case "/sell":
         result = await sellHandler.handler({
-          session: req.session,
+          session: req.session as SessionData,
           wallet: req.session.userId
             ? (await getWallet(req.session.userId)) || undefined
             : undefined,
@@ -718,7 +691,7 @@ console.log("Session userId:", req.session.userId);
         break;
       case "/deposit":
         result = await depositHandler.handler({
-          session: req.session,
+          session: req.session as SessionData,
           wallet: req.session.userId
             ? (await getWallet(req.session.userId)) || undefined
             : undefined,
@@ -726,7 +699,7 @@ console.log("Session userId:", req.session.userId);
         break;
       case "/withdraw":
         result = await withdrawHandler.handler({
-          session: req.session,
+          session: req.session as SessionData,
           wallet: req.session.userId
             ? (await getWallet(req.session.userId)) || undefined
             : undefined,
@@ -734,12 +707,12 @@ console.log("Session userId:", req.session.userId);
         break;
       case "/wallet":
         result = await walletHandler.handler({
-          session: req.session,
+          session: req.session as SessionData,
         });
         break;
       case "/settings":
         result = await settingsHandler.handler({
-          session: req.session,
+          session: req.session as SessionData,
         });
         break;
       case "/help":
@@ -770,60 +743,60 @@ app.post(
     let result;
     if (callback === "check_balance") {
       result = await balanceHandler.handler({
-        session: req.session,
+        session: req.session as SessionData,
         wallet,
       });
     } else if (callback === "check_history") {
       result = await historyHandler.handler({
-        session: req.session,
+        session: req.session as SessionData,
         wallet,
       });
     } else if (callback === "buy_token") {
       result = await buyHandler.handler({
-        session: req.session,
+        session: req.session as SessionData,
         wallet,
       });
     } else if (callback === "sell_token") {
       result = await sellHandler.handler({
-        session: req.session,
+        session: req.session as SessionData,
         wallet,
       });
     } else if (callback === "open_settings") {
       result = await settingsHandler.handler({
-        session: req.session,
+        session: req.session as SessionData,
         // wallet not typically needed for settings main view
       });
     } else if (callback === "deposit") {
       result = await depositHandler.handler({
-        session: req.session,
+        session: req.session as SessionData,
         wallet,
       });
     } else if (callback === "withdraw") {
       result = await withdrawHandler.handler({
-        session: req.session,
+        session: req.session as SessionData,
         wallet,
       });
     } else if (callback === "help") {
       result = await helpHandler.handler(); // No context needed
     } else if (callback === "export_key") {
       result = await exportHandler.handler({
-        session: req.session,
+        session: req.session as SessionData,
         wallet,
       });
     } else if (callback === "create_wallet") {
       result = await createHandler.handler({
-        session: req.session,
+        session: req.session as SessionData,
         // wallet might be checked to see if one exists
       });
     } else if (callback === "import_wallet") {
       result = await importHandler.handler({
-        session: req.session,
+        session: req.session as SessionData,
         wallet, // To check if one already exists
       });
     } else if (callback === "confirm_create_wallet") {
       req.session.walletAddress = undefined;
       result = await createHandler.handler({
-        session: req.session,
+        session: req.session as SessionData,
       });
     } else if (callback === "cancel_create_wallet") {
       result = {
@@ -833,7 +806,7 @@ app.post(
     } else if (callback === "confirm_import_wallet") {
       req.session.walletAddress = undefined;
       result = await importHandler.handler({
-        session: req.session,
+        session: req.session as SessionData,
       });
     } else if (callback === "cancel_import_wallet") {
       result = {

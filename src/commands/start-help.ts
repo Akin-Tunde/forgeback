@@ -4,7 +4,6 @@ import {
   getUserByfid,
   getUserSettings,
   saveUserSettings,
-  getWalletByUserId
 } from "../lib/database";
 
 const HELP_MESSAGE = `🤖 Welcome to Base MEV-Protected Trading Bot!\n\nTrade ERC-20 tokens with MEV protection on the Base Network.\n\n🧱 Getting Started\n- /create — Create a new wallet\n- /import — Import an existing wallet\n\n💼 Wallet Management\n- /wallet — View your wallet address and type\n- /deposit — Get your deposit address\n- /withdraw — Withdraw ETH to another address\n- /balance — Check your current token balances\n- /history — View your balance history\n- /export — Export your private key\n\n📈 Trading Commands\n- /buy — Buy tokens with ETH\n- /sell — Sell tokens for ETH\n\n⚙️ Settings & Info\n- /settings — Configure your trading preferences\n- /help — Show this help message\n\n🛠 Tip: Start by creating or importing a wallet, then deposit ETH to begin trading.`;
@@ -32,65 +31,41 @@ export const startHandler: CommandHandler = {
         await createUser(
           userId,
           userId, // Assuming fid = userId
-          session.username || 'player',
-          session.displayName || 'User',
-          undefined
+          session.username || 'player', // Default to 'player'
+          session.displayName || 'User', // Default to 'User'
+          undefined // lastName
         );
         await saveUserSettings(userId, {
           slippage: 1.0,
           gasPriority: "medium",
         });
         return {
-          response: `🤖 Welcome to Base MEV-Protected Trading Bot, ${session.username || session.displayName || 'User'}!\n\n🧱 Getting Started\n- /create — Create a new wallet\n- /import — Import an existing wallet`,
-          buttons: [
-            [
-              { label: "Create Wallet", callback: "/create" },
-              { label: "Import Wallet", callback: "/import" },
-            ],
-          ],
+          response: HELP_MESSAGE,
         };
-      }
-
-      // Check if user has a wallet
-      const wallet = await getWalletByUserId(userId);
-      const hasWallet = !!wallet;
-      console.log("startHandler: hasWallet =", hasWallet);
-
-      if (!hasWallet) {
+      } else {
+        const settings = await getUserSettings(userId);
+        console.log("startHandler: settings =", settings);
+        if (settings) {
+          session.settings = settings;
+        }
         return {
-          response: `🤖 Welcome back to Base MEV-Protected Trading Bot, ${existingUser.username || existingUser.firstName || 'User'}!\n\n🧱 Getting Started\n- /create — Create a new wallet\n- /import — Import an existing wallet`,
+          response: `🤖 Welcome back to Base MEV-Protected Trading Bot, ${existingUser.username || existingUser.firstName || 'User'}!\n\nWhat would you like to do today?`,
           buttons: [
             [
-              { label: "Create Wallet", callback: "/create" },
-              { label: "Import Wallet", callback: "/import" },
+              { label: "💰 Balance", callback: "check_balance" },
+              { label: "📊 History", callback: "check_history" },
+            ],
+            [
+              { label: "💱 Buy Token", callback: "buy_token" },
+              { label: "💱 Sell Token", callback: "sell_token" },
+            ],
+            [
+              { label: "⚙️ Settings", callback: "open_settings" },
+              { label: "📋 Help", callback: "help" },
             ],
           ],
         };
       }
-
-      // User has a wallet, show full features
-      const settings = await getUserSettings(userId);
-      console.log("startHandler: settings =", settings);
-      if (settings) {
-        session.settings = settings;
-      }
-      return {
-        response: `🤖 Welcome back to Base MEV-Protected Trading Bot, ${existingUser.username || existingUser.firstName || 'User'}!\n\nWhat would you like to do today?`,
-        buttons: [
-          [
-            { label: "💰 Balance", callback: "check_balance" },
-            { label: "📊 History", callback: "check_history" },
-          ],
-          [
-            { label: "💱 Buy Token", callback: "buy_token" },
-            { label: "💱 Sell Token", callback: "sell_token" },
-          ],
-          [
-            { label: "⚙️ Settings", callback: "open_settings" },
-            { label: "📋 Help", callback: "help" },
-          ],
-        ],
-      };
     } catch (error) {
       console.error("Error in start command:", error);
       return { response: "❌ An error occurred. Please try again later." };
