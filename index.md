@@ -97,7 +97,6 @@ app.get("/", (req, res) => {
   res.send("🔧 ForgeBot backend is running.");
 });
 
-
 // Farcaster authentication middleware
 const authenticateFarcaster = async (
   req: Request,
@@ -115,23 +114,20 @@ const authenticateFarcaster = async (
   next();
 };
 
-// Initialize session data middleware
+// Initialize session data
 const ensureSessionData = (
   req: Request,
   res: Response,
   next: NextFunction
 ): void => {
   if (!req.session.userId) {
-    req.session.userId = `guest_${Date.now()}`;
+    req.session.userId = `guest_${Date.now()}`; // Fallback guest ID
     req.session.currentAction = undefined;
     req.session.tempData = {};
     req.session.settings = { slippage: 1.0, gasPriority: "medium" };
   }
   next();
 };
-
-
-
 
 // API Routes
 app.post(
@@ -593,100 +589,6 @@ app.post(
   }
 );
 
-// New /api/chat/command endpoint to handle generic commands from frontend
-app.post(
-  "/api/chat/command",
-  authenticateFarcaster,
-  ensureSessionData,
-  async (req: Request, res: Response): Promise<void> => {
-    const { command, fid } = req.body; // Assuming fid is also sent from frontend
-    let result;
-
-    // Log the incoming command for debugging purposes
-    console.log(`Received command: ${command}, FID: ${fid}`);
-console.log("Session userId:", req.session.userId);
-
-    // Map the incoming 'command' string to the appropriate backend handler.
-    // This switch statement provides a basic example. You might need to adjust
-    // how 'args' and 'callback' are handled if your frontend sends them differently
-    // for certain commands.
-    switch (command) {
-      case "/start":
-        result = await startHandler.handler({
-          session: req.session as SessionData,
-        });
-        break;
-      case "/balance":
-        result = await balanceHandler.handler({
-          session: req.session as SessionData,
-          wallet: req.session.userId
-            ? (await getWallet(req.session.userId)) || undefined
-            : undefined,
-        });
-        break;
-      case "/buy":
-        // For commands like /buy, /sell, /import, /withdraw, /history, /settings
-        // which have complex flows and might expect 'args' or 'callback' in their
-        // specific API endpoints, you'll need to decide how to pass these from the frontend
-        // or derive them here. If the frontend only sends the base command (e.g., "/buy"), then
-        // the initial handler (e.g., buyHandler.handler) will be called, which
-        // typically returns buttons for the next step.
-        result = await buyHandler.handler({
-          session: req.session as SessionData,
-          wallet: req.session.userId
-            ? (await getWallet(req.session.userId)) || undefined
-            : undefined,
-        });
-        break;
-      case "/sell":
-        result = await sellHandler.handler({
-          session: req.session as SessionData,
-          wallet: req.session.userId
-            ? (await getWallet(req.session.userId)) || undefined
-            : undefined,
-        });
-        break;
-      case "/deposit":
-        result = await depositHandler.handler({
-          session: req.session as SessionData,
-          wallet: req.session.userId
-            ? (await getWallet(req.session.userId)) || undefined
-            : undefined,
-        });
-        break;
-      case "/withdraw":
-        result = await withdrawHandler.handler({
-          session: req.session as SessionData,
-          wallet: req.session.userId
-            ? (await getWallet(req.session.userId)) || undefined
-            : undefined,
-        });
-        break;
-      case "/wallet":
-        result = await walletHandler.handler({
-          session: req.session as SessionData,
-        });
-        break;
-      case "/settings":
-        result = await settingsHandler.handler({
-          session: req.session as SessionData,
-        });
-        break;
-      case "/help":
-        result = await helpHandler.handler();
-        break;
-      // Add more cases for other commands as needed
-      default:
-        // If the command is not recognized, return an error or a default message
-        result = { response: `Unknown command: ${command}. Please try /help.` };
-        break;
-    }
-    res.json(result);
-    return;
-  }
-);
-
-
 // Callback query handler
 app.post(
   "/api/callback",
@@ -783,7 +685,7 @@ const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, () => {
   console.log(`🤖 Base MEV-Protected Trading Bot running on port ${PORT}`);
   console.log(`ℹ️ API available at http://localhost:${PORT}`);
-  console.log(`ℹ️ Frontend: http://localhost:5173/`);
+  console.log(`ℹ️ Frontend: https://mini-testf.netlify.app`);
 });
 
 // Handle graceful shutdown
