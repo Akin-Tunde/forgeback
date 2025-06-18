@@ -121,7 +121,11 @@ const authenticateFarcaster = (
   next: NextFunction
 ): void => {
   const fid = req.body.fid;
+  const username = req.body.username
+  const displayName = req.body.displayName
   console.log("authenticateFarcaster: fid =", fid);
+console.log("authenticateFarcaster: username =", username);
+console.log("authenticateFarcaster: displayName =", displayName);
 
   if (!fid) {
     return;
