@@ -191,7 +191,7 @@ app.post(
 );
 
 app.post("/api/help", async (_req: Request, res: Response): Promise<void> => {
-  const result = await helpHandler.handler();
+  const result = await helpHandler.handler(); // TS2554
   res.json(result);
   return;
 });
@@ -637,22 +637,20 @@ app.post(
 );
 
 // New /api/chat/command endpoint to handle generic commands from frontend
+// index.ts
+
+
 app.post(
   "/api/chat/command",
   authenticateFarcaster,
   ensureSessionData,
   async (req: Request, res: Response): Promise<void> => {
-    const { command, fid } = req.body; // Assuming fid is also sent from frontend
+    const { command, fid } = req.body;
     let result;
 
-    // Log the incoming command for debugging purposes
     console.log(`Received command: ${command}, FID: ${fid}`);
-console.log("Session userId:", req.session.userId);
+    console.log("Session userId:", req.session.userId);
 
-    // Map the incoming 'command' string to the appropriate backend handler.
-    // This switch statement provides a basic example. You might need to adjust
-    // how 'args' and 'callback' are handled if your frontend sends them differently
-    // for certain commands.
     switch (command) {
       case "/start":
         result = await startHandler.handler({
@@ -668,12 +666,6 @@ console.log("Session userId:", req.session.userId);
         });
         break;
       case "/buy":
-        // For commands like /buy, /sell, /import, /withdraw, /history, /settings
-        // which have complex flows and might expect 'args' or 'callback' in their
-        // specific API endpoints, you'll need to decide how to pass these from the frontend
-        // or derive them here. If the frontend only sends the base command (e.g., "/buy"), then
-        // the initial handler (e.g., buyHandler.handler) will be called, which
-        // typically returns buttons for the next step.
         result = await buyHandler.handler({
           session: req.session as SessionData,
           wallet: req.session.userId
@@ -718,9 +710,12 @@ console.log("Session userId:", req.session.userId);
       case "/help":
         result = await helpHandler.handler();
         break;
-      // Add more cases for other commands as needed
+      case "/create": // Add this case
+        result = await createHandler.handler({
+          session: req.session as SessionData,
+        });
+        break;
       default:
-        // If the command is not recognized, return an error or a default message
         result = { response: `Unknown command: ${command}. Please try /help.` };
         break;
     }
@@ -729,8 +724,7 @@ console.log("Session userId:", req.session.userId);
   }
 );
 
-
-// Callback query handler
+// Callback query handler (unchanged)
 app.post(
   "/api/callback",
   authenticateFarcaster,
@@ -764,7 +758,6 @@ app.post(
     } else if (callback === "open_settings") {
       result = await settingsHandler.handler({
         session: req.session as SessionData,
-        // wallet not typically needed for settings main view
       });
     } else if (callback === "deposit") {
       result = await depositHandler.handler({
@@ -777,7 +770,7 @@ app.post(
         wallet,
       });
     } else if (callback === "help") {
-      result = await helpHandler.handler(); // No context needed
+      result = await helpHandler.handler();
     } else if (callback === "export_key") {
       result = await exportHandler.handler({
         session: req.session as SessionData,
@@ -786,12 +779,11 @@ app.post(
     } else if (callback === "create_wallet") {
       result = await createHandler.handler({
         session: req.session as SessionData,
-        // wallet might be checked to see if one exists
       });
     } else if (callback === "import_wallet") {
       result = await importHandler.handler({
         session: req.session as SessionData,
-        wallet, // To check if one already exists
+        wallet,
       });
     } else if (callback === "confirm_create_wallet") {
       req.session.walletAddress = undefined;
@@ -800,8 +792,7 @@ app.post(
       });
     } else if (callback === "cancel_create_wallet") {
       result = {
-        response:
-          "Operation cancelled. Your existing wallet remains unchanged.",
+        response: "Operation cancelled. Your existing wallet remains unchanged.",
       };
     } else if (callback === "confirm_import_wallet") {
       req.session.walletAddress = undefined;
@@ -810,11 +801,10 @@ app.post(
       });
     } else if (callback === "cancel_import_wallet") {
       result = {
-        response:
-          "Operation cancelled. Your existing wallet remains unchanged.",
+        response: "Operation cancelled. Your existing wallet remains unchanged.",
       };
     } else {
-      result = { response: "❌ Unknown command." };
+      result = { response: "❌ Unknown callback." };
     }
     res.json(result);
     return;
