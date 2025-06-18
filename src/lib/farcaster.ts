@@ -4,7 +4,7 @@ import {
   viemConnector,
   generateNonce,
 } from "@farcaster/auth-client";
-import { Request, Response } from "express";
+import { Request } from "express";
 import { Session } from "express-session";
 import { SessionData } from "../types/commands";
 
@@ -19,7 +19,7 @@ const farcasterClient = createAppClient({
   ethereum: viemConnector({ rpcUrl: BASE_RPC_URL }),
 });
 
-// Extend Request interface to include custom SessionData
+// Extend Request interface
 interface AuthRequest extends Request {
   session: Session & Partial<SessionData>;
 }
@@ -27,9 +27,10 @@ interface AuthRequest extends Request {
 // Verify Farcaster signature
 export async function verifyFarcasterSignature(req: AuthRequest): Promise<boolean> {
   try {
+    console.log("verifyFarcasterSignature: req.body =", JSON.stringify(req.body, null, 2)); // Add logging
     const { user } = req.body;
     if (!user?.nonce || !user?.signature || !user?.message) {
-      console.error("Missing Farcaster auth data");
+      console.error("Missing Farcaster auth data", { user });
       return false;
     }
 
@@ -57,7 +58,7 @@ export async function verifyFarcasterSignature(req: AuthRequest): Promise<boolea
       return false;
     }
 
-    req.session.userId = verifyResult.fid.toString(); // Now valid
+    req.session.userId = verifyResult.fid.toString();
     return true;
   } catch (error) {
     console.error("Error verifying Farcaster signature:", error);
