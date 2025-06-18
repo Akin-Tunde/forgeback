@@ -1,21 +1,23 @@
-import { UserSettings } from "./config";
-import { WalletData } from "./wallet";
+// src/types/commands.ts
+import { Session } from 'express-session';
+import { UserSettings } from './config';
+import { WalletData } from './wallet';
 
 export interface SessionData {
-  userId?: string;
+  userId?: string; // Optional
   walletAddress?: string;
   currentAction?: string;
   tempData?: Record<string, any>;
   settings?: UserSettings;
   fid?: string;
-  username?: string; // Add username
-  displayName?: string; // Add displayName
+  username?: string;
+  displayName?: string;
 }
 
 export interface CommandContext {
-  session: SessionData;
+  session: Session & Partial<SessionData>; // Fix: Use Session & Partial<SessionData>
   wallet?: WalletData;
-  args?: string; // Single string for input (e.g., private key, amount)
+  args?: string;
 }
 
 export interface CommandHandler {
@@ -27,4 +29,4 @@ export interface CommandHandler {
   }>;
 }
 
-export type SettingsOption = "slippage" | "gasPriority";
+export type SettingsOption = 'slippage' | 'gasPriority';
