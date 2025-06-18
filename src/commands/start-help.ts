@@ -5,7 +5,7 @@ import {
   getUserByfid,
   getUserSettings,
   saveUserSettings,
-  getWalletByUserId, // Assume this function exists
+  getWalletByUserId,
 } from "../lib/database";
 
 const GETTING_STARTED_MESSAGE = `🤖 Welcome to Base MEV-Protected Trading Bot!\n\n🧱 Getting Started\n- /create — Create a new wallet\n- /import — Import an existing wallet\n\nStart by creating or importing a wallet to begin trading.`;
@@ -54,7 +54,6 @@ export const startHandler: CommandHandler = {
         };
       }
 
-      // Check if user has a wallet
       const wallet = await getWalletByUserId(userId);
       console.log("startHandler: wallet =", wallet);
 
@@ -71,7 +70,6 @@ export const startHandler: CommandHandler = {
         };
       }
 
-      // User has a wallet, show full buttons
       const settings = await getUserSettings(userId);
       console.log("startHandler: settings =", settings);
       if (settings) {
