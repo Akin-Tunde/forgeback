@@ -636,11 +636,8 @@ app.post(
   }
 );
 
-// New /api/chat/command endpoint to handle generic commands from frontend
-// index.ts
 
-
-// index.ts
+// index.ts (partial)
 
 
 app.post(
@@ -758,6 +755,8 @@ app.post(
       : undefined;
     let result;
 
+    console.log(`Received callback: ${callback}, args: ${args}, currentAction: ${(req.session as SessionData).currentAction}`); // Debug
+
     if ((req.session as SessionData).currentAction === "import_wallet" && args) {
       result = await handlePrivateKeyInput({
         session: req.session as SessionData,
@@ -853,6 +852,7 @@ app.post(
     return;
   }
 );
+
 // Start server
 const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, () => {
