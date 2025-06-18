@@ -1,10 +1,12 @@
+// src/lib/farcaster.ts
 import {
   createAppClient,
   viemConnector,
   generateNonce,
 } from "@farcaster/auth-client";
-import { Request } from "express";
-import { SessionData } from "../types/commands"; // Import SessionData
+import { Request, Response } from "express";
+import { Session } from "express-session";
+import { SessionData } from "../types/commands";
 
 // Configuration
 const FARCSTER_DOMAIN = process.env.FARCSTER_DOMAIN || "mini-testf.netlify.app";
@@ -17,8 +19,13 @@ const farcasterClient = createAppClient({
   ethereum: viemConnector({ rpcUrl: BASE_RPC_URL }),
 });
 
+// Extend Request interface to include custom SessionData
+interface AuthRequest extends Request {
+  session: Session & Partial<SessionData>;
+}
+
 // Verify Farcaster signature
-export async function verifyFarcasterSignature(req: Request): Promise<boolean> {
+export async function verifyFarcasterSignature(req: AuthRequest): Promise<boolean> {
   try {
     const { user } = req.body;
     if (!user?.nonce || !user?.signature || !user?.message) {
@@ -50,7 +57,7 @@ export async function verifyFarcasterSignature(req: Request): Promise<boolean> {
       return false;
     }
 
-    (req.sessionfid).userId = verifyResult.fid.toString();
+    req.session.userId = verifyResult.fid.toString(); // Now valid
     return true;
   } catch (error) {
     console.error("Error verifying Farcaster signature:", error);
