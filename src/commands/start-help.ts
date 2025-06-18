@@ -14,9 +14,10 @@ const HELP_MESSAGE = `🤖 Welcome to Base MEV-Protected Trading Bot!\n\nTrade E
 export const startHandler: CommandHandler = {
   command: "start",
   description: "Start the bot and register user",
-  handler: async ({ session }: CommandContext) => {
+  handler: async (ctx?: CommandContext) => {
     try {
-      const userId = session.userId;
+      const session = ctx?.session;
+      const userId = session?.userId;
       console.log("startHandler: userId =", userId);
       if (!userId) {
         console.log("startHandler: No userId found in session");
