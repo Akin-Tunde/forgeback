@@ -9,9 +9,9 @@ const supabase: SupabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 type UserRow = {
   userId: string;
   fid: string;
-  username: string | null;
-  firstName: string | null;
-  lastName: string | null;
+  username?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
   createdAt: number;
 };
 

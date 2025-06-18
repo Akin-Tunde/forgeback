@@ -58,8 +58,12 @@ declare module "express-session" {
     userId: string;
     currentAction?: string;
     tempData: Record<string, any>;
-    settings: { slippage: number; gasPriority: string };
+    settings: { slippage: number; 
+    gasPriority: string };
     walletAddress?: string;
+    fid?: string;
+  username?: string; // Added
+  displayName?: string; // Added
   }
 }
 
@@ -115,39 +119,43 @@ app.get("/", (req, res) => {
 
 
 // Farcaster authentication middleware
+
 const authenticateFarcaster = (
   req: Request,
   res: Response,
   next: NextFunction
 ): void => {
   const fid = req.body.fid;
-  const username = req.body.username
-  const displayName = req.body.displayName
+  const username = req.body.username;
+  const displayName = req.body.displayName;
   console.log("authenticateFarcaster: fid =", fid);
-console.log("authenticateFarcaster: username =", username);
-console.log("authenticateFarcaster: displayName =", displayName);
+  console.log("authenticateFarcaster: username =", username);
+  console.log("authenticateFarcaster: displayName =", displayName);
 
   if (!fid) {
-    return;
+    console.log("authenticateFarcaster: No FID provided, skipping authentication");
+    return next(); // Proceed without setting session data
   }
 
-  // Set session.userId to fid if authenticated
-  if (fid) {
-    req.session.userId = fid.toString();
-    console.log("authenticateFarcaster: Set session.userId =", req.session.userId);
-    // Explicitly save the session
-    req.session.save((err) => {
-      if (err) {
-        console.error("Error saving session:", err);
-        return res.status(500).send("Failed to save session");
-      }
-      next();
-    });
-    return;
-  }
-  next();
+  // Set session data
+  req.session.userId = fid.toString();
+  req.session.fid = fid.toString();
+  req.session.username = username || undefined; // Store undefined if not provided
+  req.session.displayName = displayName || undefined;
+  console.log("authenticateFarcaster: Set session.userId =", req.session.userId);
+  console.log("authenticateFarcaster: Set session.fid =", req.session.fid);
+  console.log("authenticateFarcaster: Set session.username =", req.session.username);
+  console.log("authenticateFarcaster: Set session.displayName =", req.session.displayName);
+
+  // Explicitly save the session
+  req.session.save((err) => {
+    if (err) {
+      console.error("Error saving session:", err);
+      return res.status(500).send("Failed to save session");
+    }
+    next();
+  });
 };
-
 // Initialize session data middleware
 const ensureSessionData = (
   req: Request,
