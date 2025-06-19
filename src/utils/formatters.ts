@@ -9,19 +9,18 @@ export function formatEthBalance(balance: string | undefined): string {
     console.log("[formatEthBalance] Formatting balance:", balance);
     if (!balance || isNaN(Number(balance))) {
       console.warn("[formatEthBalance] Invalid or undefined balance, returning 0");
-      return "0.0000";
+      return "0.000000";
     }
     const balanceBigInt = BigInt(balance);
     const formatted = formatUnits(balanceBigInt, 18);
-    const result = parseFloat(formatted).toFixed(4);
+    const result = parseFloat(formatted).toFixed(6); // Changed from 4 to 6
     console.log("[formatEthBalance] Formatted balance:", result);
     return result;
   } catch (error) {
     console.error("[formatEthBalance] Error formatting balance:", balance, error);
-    return "0.0000";
+    return "0.000000"; // Changed from 0.0000 to 0.000000
   }
 }
-
 /**
  * Format token balance based on decimals
  */
