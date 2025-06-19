@@ -756,7 +756,6 @@ app.post(
   }
 );
 
-// index.ts (/api/callback snippet)
 app.post(
   "/api/callback",
   authenticateFarcaster,
@@ -776,14 +775,22 @@ app.post(
         console.warn("[Callback] Unexpected null callback with address args:", args, "currentAction:", session.currentAction);
         if (session.currentAction === "buy_custom_token") {
           console.log("[Callback] Handling custom token input:", args, "for userId:", session.userId);
-          result = await handleCustomTokenInput({ session, args });
+          result = await handleCustomTokenInput({ session, args, wallet });
         } else {
           console.warn("[Callback] Resetting currentAction to buy_custom_token for address input:", args);
           session.currentAction = "buy_custom_token";
           await session.save();
           console.log("[Callback] Session saved: userId =", session.userId, "currentAction =", session.currentAction);
-          result = await handleCustomTokenInput({ session, args });
+          result = await handleCustomTokenInput({ session, args, wallet });
         }
+      } else if (session.currentAction === "buy_amount" && args) {
+        console.log("[Callback] Handling buy amount input:", args, "for userId:", session.userId);
+        result = await handleBuyAmountInput({ session, args, wallet });
+      } else if (session.currentAction === "buy_confirm" && (callback === "confirm_yes" || callback === "confirm_no")) {
+        console.log("[Callback] Handling buy confirmation:", callback, "for userId:", session.userId);
+        result = await handleBuyConfirmation({ session, wallet }, callback === "confirm_yes");
+        session.currentAction = undefined;
+        await session.save();
       } else if (session.currentAction === "export_wallet" && (callback === "confirm_yes" || callback === "Confirm" || callback === "confirm_no")) {
         console.log(`[Callback] Handling export confirmation: ${callback}, userId=${session.userId}`);
         result = await handleExportConfirmation(
@@ -816,23 +823,15 @@ app.post(
         result = await updateGasPriority({ session }, priority);
       } else if (["USDC", "DAI", "WBTC", "custom"].includes(callback)) {
         console.log("[Callback] Handling token selection:", callback, "for userId:", session.userId);
-        result = await handleTokenSelection({ session, args: callback });
+        result = await handleTokenSelection({ session, args: callback, wallet });
       } else if (session.currentAction === "buy_custom_token" && args) {
         console.log("[Callback] Handling custom token input:", args, "for userId:", session.userId);
         try {
-          result = await handleCustomTokenInput({ session, args });
+          result = await handleCustomTokenInput({ session, args, wallet });
         } catch (error) {
           console.error("[Callback] Error in handleCustomTokenInput for userId:", session.userId, "args:", args, error);
           result = { response: "❌ Failed to process token address. Please check the address and try again." };
         }
-      } else if (session.currentAction === "buy_amount" && args) {
-        console.log("[Callback] Handling buy amount input:", args, "for userId:", session.userId);
-        result = await handleBuyAmountInput({ session, args });
-      } else if (session.currentAction === "buy_confirm" && (callback === "confirm_yes" || callback === "confirm_no")) {
-        console.log("[Callback] Handling buy confirmation:", callback, "for userId:", session.userId);
-        result = await handleBuyConfirmation({ session, wallet }, callback === "confirm_yes");
-        session.currentAction = undefined;
-        await session.save();
       } else if (callback === "import_wallet" && args) {
         console.log("[Callback] Processing private key input with args:", args);
         if (session.currentAction !== "import_wallet") {
@@ -888,7 +887,7 @@ app.post(
         };
       } else {
         console.error("[Callback] Unknown callback:", callback, "args:", args, "currentAction:", session.currentAction);
-        result = { response: "❌ Unknown callback or invalid session state." };
+        result = { response: "❌ Unknown callback or invalid session state. Please restart with /buy." };
       }
     } catch (error) {
       console.error("[Callback] Error processing callback:", callback, "args:", args, error);
@@ -901,6 +900,7 @@ app.post(
     return;
   }
 );
+
 // Other imports and app setup remain unchanged
 
 // ... (rest of index.ts unchanged: other routes, server start, SIGINT handler)
