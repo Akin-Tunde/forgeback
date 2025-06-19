@@ -165,6 +165,8 @@ export const exportHandler = {
 };
 
 // ... (importHandler, handlePrivateKeyInput, handleExportConfirmation unchanged)
+
+// src/commands/import-export.ts (handleExportConfirmation only)
 export async function handleExportConfirmation(
   context: CommandContext,
   confirmed: boolean
@@ -174,19 +176,12 @@ export async function handleExportConfirmation(
 }> {
   const { session, wallet } = context;
   try {
+    console.log("[ExportConfirmation] Handling confirmation, confirmed:", confirmed, "userId:", session.userId, "wallet:", wallet ? 'exists' : 'undefined');
+    
     if (!confirmed) {
       session.currentAction = undefined;
-      await new Promise((resolve, reject) => {
-        session.save((err: Error | null) => {
-          if (err) {
-            console.error("handleExportConfirmation: Error saving session for userId:", session.userId, err);
-            reject(err);
-          } else {
-            console.log("handleExportConfirmation: Session saved, export cancelled for userId:", session.userId);
-            resolve(null);
-          }
-        });
-      });
+      await session.save();
+      console.log("[ExportConfirmation] Cancelled, session cleared for userId:", session.userId);
       return {
         response: "✅ Operation cancelled. Your private key was not exported.",
       };
@@ -195,17 +190,8 @@ export async function handleExportConfirmation(
     const userId = session.userId;
     if (!userId) {
       session.currentAction = undefined;
-      await new Promise((resolve, reject) => {
-        session.save((err: Error | null) => {
-          if (err) {
-            console.error("handleExportConfirmation: Error saving session:", err);
-            reject(err);
-          } else {
-            resolve(null);
-          }
-        });
-      });
-      console.error("handleExportConfirmation: No userId found");
+      await session.save();
+      console.error("[ExportConfirmation] No userId found");
       return {
         response: "❌ Session expired. Please use /start to begin again.",
       };
@@ -213,54 +199,27 @@ export async function handleExportConfirmation(
 
     if (!wallet) {
       session.currentAction = undefined;
-      await new Promise((resolve, reject) => {
-        session.save((err: Error | null) => {
-          if (err) {
-            console.error("handleExportConfirmation: Error saving session for userId:", userId, err);
-            reject(err);
-          } else {
-            resolve(null);
-          }
-        });
-      });
-      console.error("handleExportConfirmation: No wallet found for userId:", userId);
+      await session.save();
+      console.error("[ExportConfirmation] No wallet found for userId:", userId);
       return {
         response:
           "❌ Wallet not found. Please create or import a wallet first.",
       };
     }
 
-    console.log("handleExportConfirmation: Exporting private key for userId:", userId, "address:", wallet.address);
+    console.log("[ExportConfirmation] Retrieving private key for userId:", userId, "address:", wallet.address);
     const privateKey = getPrivateKey(wallet);
     session.currentAction = undefined;
-    await new Promise((resolve, reject) => {
-      session.save((err: Error | null) => {
-        if (err) {
-          console.error("handleExportConfirmation: Error saving session for userId:", userId, err);
-          reject(err);
-        } else {
-          console.log("handleExportConfirmation: Session saved, currentAction cleared for userId:", userId);
-          resolve(null);
-        }
-      });
-    });
+    await session.save();
+    console.log("[ExportConfirmation] Private key retrieved, session cleared for userId:", userId);
 
     return {
       response: `🔑 Your Private Key\n\n${privateKey}\n\n⚠️ REMINDER\n\nYour private key has been displayed. For security:\n1. Save it in a secure password manager\n2. Never share it with anyone\n3. Delete any chat history containing this key`,
     };
   } catch (error) {
-    console.error("Error handling export confirmation for userId:", session?.userId, error);
+    console.error("[ExportConfirmation] Error for userId:", session?.userId, error);
     session.currentAction = undefined;
-    await new Promise((resolve, reject) => {
-      session.save((err: Error | null) => {
-        if (err) {
-          console.error("handleExportConfirmation: Error saving session for userId:", session?.userId, err);
-          reject(err);
-        } else {
-          resolve(null);
-        }
-      });
-    });
+    await session.save();
     return {
       response:
         "❌ An error occurred while exporting your private key. Please try again later.",

@@ -771,7 +771,7 @@ app.post(
 // index.ts (/api/callback snippet)
 
 
-// /api/callback route
+// index.ts (/api/callback snippet)
 app.post(
   "/api/callback",
   authenticateFarcaster,
@@ -784,61 +784,61 @@ app.post(
       : undefined;
     let result;
 
-    console.log(`[Webhook] Received: callback=${callback}, args=${JSON.stringify(args)}, currentAction=${session.currentAction}, userId=${session.userId}, walletAddress=${session.walletAddress}, sessionId=${req.sessionID}`);
+    console.log(`[Callback] Received: callback=${callback}, args=${JSON.stringify(args)}, currentAction=${session.currentAction}, userId=${session.userId}, walletAddress=${session.walletAddress}, sessionId=${req.sessionID}, wallet=${wallet ? 'exists' : 'undefined'}`);
 
     try {
-      if (session.currentAction === "export_wallet" && (callback === "Confirm" || callback === "confirm_no")) {
-        console.log(`[Webhook] Handling export confirmation: ${callback}, userId=${session.userId}`);
+      if (session.currentAction === "export_wallet" && (callback === "confirm_yes" || callback === "Confirm" || callback === "confirm_no")) {
+        console.log(`[Callback] Handling export confirmation: ${callback}, userId=${session.userId}`);
         result = await handleExportConfirmation(
           { session, wallet },
-          callback === "Confirm"
+          callback === "confirm_yes" || callback === "Confirm"
         );
         session.currentAction = undefined;
         await session.save();
-      } else if (callback === "Confirm" || callback === "confirm_no") {
+      } else if (callback === "confirm_yes" || callback === "Confirm" || callback === "confirm_no") {
         console.warn(`[Callback] Fallback handling confirmation: ${callback}, userId=${session.userId}, currentAction=${session.currentAction}`);
         result = await handleExportConfirmation(
           { session, wallet },
-          callback === "Confirm"
+          callback === "confirm_yes" || callback === "Confirm"
         );
         session.currentAction = undefined;
         await session.save();
       } else if (callback === "import_wallet" && args) {
-        console.log("[Webhook] Processing private key input with args:", args);
+        console.log("[Callback] Processing private key input with args:", args);
         if (session.currentAction !== "import_wallet") {
-          console.warn("[Webhook] Setting currentAction to import_wallet");
+          console.warn("[Callback] Setting currentAction to import_wallet");
           session.currentAction = "import_wallet";
         }
         result = await handlePrivateKeyInput({ session, args, wallet });
       } else if (session.currentAction === "import_wallet" && args) {
-        console.log("[Webhook] Processing private key input (legacy):", args);
+        console.log("[Callback] Processing private key input (legacy):", args);
         result = await handlePrivateKeyInput({ session, args, wallet });
       } else if (callback === "check_balance") {
-        console.log("[Webhook] Handling check_balance");
+        console.log("[Callback] Handling check_balance");
         result = await balanceHandler.handler({ session, wallet });
       } else if (callback === "check_history") {
-        console.log("[Webhook] Handling check_history");
+        console.log("[Callback] Handling check_history");
         result = await historyHandler.handler({ session, wallet });
       } else if (callback === "buy_token") {
-        console.log("[Webhook] Handling buy_token");
+        console.log("[Callback] Handling buy_token");
         result = await buyHandler.handler({ session, wallet });
       } else if (callback === "sell_token") {
-        console.log("[Webhook] Handling sell_token");
+        console.log("[Callback] Handling sell_token");
         result = await sellHandler.handler({ session, wallet });
       } else if (callback === "open_settings") {
-        console.log("[Webhook] Handling open_settings");
+        console.log("[Callback] Handling open_settings");
         result = await settingsHandler.handler({ session });
       } else if (callback === "help") {
-        console.log("[Webhook] Handling help");
+        console.log("[Callback] Handling help");
         result = await helpHandler.handler();
       } else if (callback === "deposit") {
-        console.log("[Webhook] Handling deposit");
+        console.log("[Callback] Handling deposit");
         result = await depositHandler.handler({ session, wallet });
       } else if (callback === "withdraw") {
-        console.log("[Webhook] Handling withdraw");
+        console.log("[Callback] Handling withdraw");
         result = await withdrawHandler.handler({ session });
       } else if (callback === "export_key") {
-        console.log("[Webhook] Handling export_key for userId:", session.userId);
+        console.log("[Callback] Handling export_key for userId:", session.userId);
         result = await exportHandler.handler({ session, wallet });
       } else if (callback === "confirm_create_wallet") {
         session.walletAddress = undefined;
@@ -849,7 +849,7 @@ app.post(
         };
       } else if (callback === "confirm_import_wallet") {
         session.walletAddress = undefined;
-        console.log("[Webhook] Confirming import wallet");
+        console.log("[Callback] Confirming import wallet");
         result = await importHandler.handler({ session, wallet });
       } else if (callback === "cancel_import_wallet") {
         session.currentAction = undefined;
@@ -857,15 +857,16 @@ app.post(
           response: "Operation cancelled. Your existing wallet remains unchanged.",
         };
       } else {
-        console.error("[Webhook] Unknown callback:", callback);
+        console.error("[Callback] Unknown callback:", callback);
         result = { response: "❌ Unknown callback." };
       }
     } catch (error) {
-      console.error("[Webhook] Error processing callback:", callback, error);
+      console.error("[Callback] Error processing callback:", callback, error);
       result = { response: "❌ An error occurred. Please try again later." };
     }
 
     await session.save();
+    console.log("[Callback] Session saved for userId:", session.userId);
     res.json(result);
     return;
   }
