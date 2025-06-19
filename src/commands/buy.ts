@@ -53,7 +53,9 @@ export const buyHandler = {
         walletAddress: wallet.address,
         balance,
       };
+      console.log("[Buy] Saving session: userId =", userId, "currentAction =", session.currentAction);
       await session.save();
+      console.log("[Buy] Session saved: userId =", userId, "currentAction =", session.currentAction);
 
       const buttons = [
         [
@@ -89,8 +91,9 @@ export async function handleTokenSelection(context: CommandContext): Promise<{
   try {
     if (tokenSymbol === "custom") {
       session.currentAction = "buy_custom_token";
+      console.log("[Buy] Saving session: userId =", session.userId, "currentAction =", session.currentAction);
       await session.save();
-      console.log("[Buy] Session saved: currentAction=buy_custom_token, userId:", session.userId);
+      console.log("[Buy] Session saved: userId =", session.userId, "currentAction =", session.currentAction);
       return {
         response:
           `💱 Buy Custom Token\n\nPlease send the ERC-20 token address you want to buy.\n\nThe address should look like: 0x1234...5678\n\nYou can cancel this operation by typing /cancel`.replace(
@@ -116,7 +119,9 @@ export async function handleTokenSelection(context: CommandContext): Promise<{
     session.tempData!.toSymbol = tokenInfo.symbol;
     session.tempData!.toDecimals = tokenInfo.decimals;
     session.currentAction = "buy_amount";
+    console.log("[Buy] Saving session: userId =", session.userId, "currentAction =", session.currentAction);
     await session.save();
+    console.log("[Buy] Session saved: userId =", session.userId, "currentAction =", session.currentAction);
 
     return {
       response: `💱 Buy ${tokenInfo.symbol}\n\nYou are buying ${
@@ -141,7 +146,7 @@ export async function handleCustomTokenInput(context: CommandContext): Promise<{
   const { session, args: input } = context;
   try {
     const userId = session.userId;
-    console.log("[Buy] handleCustomTokenInput: userId =", userId, "input =", input);
+    console.log("[Buy] handleCustomTokenInput: userId =", userId, "input =", input, "currentAction =", session.currentAction);
 
     if (!userId || !input) {
       console.error("[Buy] Invalid request: userId =", userId, "input =", input);
@@ -171,6 +176,7 @@ export async function handleCustomTokenInput(context: CommandContext): Promise<{
     session.tempData!.toSymbol = tokenInfo.symbol;
     session.tempData!.toDecimals = tokenInfo.decimals;
     session.currentAction = "buy_amount";
+    console.log("[Buy] Saving session: userId =", userId, "currentAction =", session.currentAction);
     await session.save();
     console.log("[Buy] Session updated for userId:", userId, "tempData =", session.tempData);
 
@@ -253,7 +259,9 @@ export async function handleBuyAmountInput(context: CommandContext): Promise<{
     );
 
     session.currentAction = "buy_confirm";
+    console.log("[Buy] Saving session: userId =", userId, "currentAction =", session.currentAction);
     await session.save();
+    console.log("[Buy] Session saved: userId =", userId, "currentAction =", session.currentAction);
 
     const buttons = [
       [
@@ -291,6 +299,7 @@ export async function handleBuyConfirmation(
     if (!confirmed) {
       session.currentAction = undefined;
       session.tempData = {};
+      console.log("[Buy] Saving session: userId =", session.userId, "currentAction =", session.currentAction);
       await session.save();
       return { response: "Trade cancelled." };
     }
@@ -350,6 +359,7 @@ export async function handleBuyConfirmation(
 
     session.currentAction = undefined;
     session.tempData = {};
+    console.log("[Buy] Saving session: userId =", userId, "currentAction =", session.currentAction);
     await session.save();
 
     if (receipt.status === "success") {
@@ -376,6 +386,7 @@ export async function handleBuyConfirmation(
     console.error("[Buy] Error processing buy confirmation for userId:", session?.userId, error);
     session.currentAction = undefined;
     session.tempData = {};
+    console.log("[Buy] Saving session: userId =", session.userId, "currentAction =", session.currentAction);
     await session.save();
     return {
       response:
