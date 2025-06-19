@@ -79,7 +79,7 @@ export const startHandler: CommandHandler = {
         response: `🤖 Welcome back to Base MEV-Protected Trading Bot, ${existingUser.username || existingUser.firstName || "User"}!\n\nWhat would you like to do today?`,
         buttons: [
           [
-            { label: "💰 Balance", callback: "/balance" },
+            { label: "💰 Balance", callback: "check_balance" },
             { label: "📊 History", callback: "/history" },
           ],
           [
