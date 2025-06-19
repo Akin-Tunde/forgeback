@@ -118,6 +118,8 @@ export async function handleTokenSelection(context: CommandContext): Promise<{
 
     const formattedBalance = formatEthBalance(session.tempData!.balance);
     console.log("[Buy] Formatted balance for display:", formattedBalance);
+
+    console.log("[Buyer] Formatted balance for display:", formatEthBalance(session.tempData!.balance));
     return {
       response: `💱 Buy ${tokenInfo.symbol}\n\nYou are buying ${
         tokenInfo.symbol
