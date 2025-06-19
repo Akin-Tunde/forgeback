@@ -659,7 +659,113 @@ app.post(
 );
 
 // index.ts (partial)
-// index.ts (/api/callback and /api/command snippets)
+
+app.post(
+  "/api/chat/command",
+  authenticateFarcaster,
+  ensureSessionData,
+  async (req: Request, res: Response): Promise<void> => {
+    const { command, fid } = req.body;
+    let result;
+
+    console.log(`Received command: ${command}, FID: ${fid}`);
+    console.log("Session userId:", req.session.userId);
+
+    switch (command) {
+      case "/start":
+        result = await startHandler.handler({
+          session: req.session as ExtendedSession,
+        });
+        break;
+      case "/balance":
+        result = await balanceHandler.handler({
+          session: req.session as ExtendedSession,
+          wallet: req.session.userId
+            ? (await getWallet(req.session.userId)) || undefined
+            : undefined,
+        });
+        break;
+      case "/buy":
+        result = await buyHandler.handler({
+          session: req.session as ExtendedSession,
+          wallet: req.session.userId
+            ? (await getWallet(req.session.userId)) || undefined
+            : undefined,
+        });
+        break;
+      case "/sell":
+        result = await sellHandler.handler({
+          session: req.session as ExtendedSession,
+          wallet: req.session.userId
+            ? (await getWallet(req.session.userId)) || undefined
+            : undefined,
+        });
+        break;
+      case "/deposit":
+        result = await depositHandler.handler({
+          session: req.session as ExtendedSession,
+          wallet: req.session.userId
+            ? (await getWallet(req.session.userId)) || undefined
+            : undefined,
+        });
+        break;
+      case "/withdraw":
+        result = await withdrawHandler.handler({
+          session: req.session as ExtendedSession,
+          wallet: req.session.userId
+            ? (await getWallet(req.session.userId)) || undefined
+            : undefined,
+        });
+        break;
+      case "/wallet":
+        result = await walletHandler.handler({
+          session: req.session as ExtendedSession,
+        });
+        break;
+      case "/settings":
+        result = await settingsHandler.handler({
+          session: req.session as ExtendedSession,
+        });
+        break;
+      case "/help":
+        result = await helpHandler.handler();
+        break;
+      case "/create":
+        result = await createHandler.handler({
+          session: req.session as ExtendedSession,
+        });
+        break;
+      case "/import":
+        result = await importHandler.handler({
+          session: req.session as ExtendedSession,
+          wallet: req.session.userId
+            ? (await getWallet(req.session.userId)) || undefined
+            : undefined,
+        });
+        break;
+      case "/export":
+        result = await exportHandler.handler({
+          session: req.session as ExtendedSession,
+          wallet: req.session.userId
+            ? (await getWallet(req.session.userId)) || undefined
+            : undefined,
+        });
+        break;
+      case "/cancel":
+        (req.session as SessionData).currentAction = undefined;
+        result = { response: "Operation cancelled." };
+        break;
+      default:
+        result = { response: `Unknown command: ${command}. Please try /help.` };
+        break;
+    }
+    res.json(result);
+    return;
+  }
+);
+
+
+// index.ts (/api/callback snippet)
 app.post(
   "/api/callback",
   authenticateFarcaster,
@@ -783,70 +889,6 @@ app.post(
 
     await session.save();
     console.log("[Callback] Session saved for userId:", session.userId);
-    res.json(result);
-    return;
-  }
-);
-
-app.post(
-  "/api/command",
-  authenticateFarcaster,
-  ensureSessionData,
-  async (req: Request, res: Response): Promise<void> => {
-    const { command, args } = req.body;
-    const session = req.session as ExtendedSession;
-    const wallet = session.userId
-      ? (await getWallet(session.userId)) || undefined
-      : undefined;
-    let result;
-
-    console.log(`[Command] Received: command=${command}, args=${JSON.stringify(args)}, currentAction=${session.currentAction}, userId=${session.userId}`);
-
-    try {
-      if (session.currentAction === "buy_custom_token" && command) {
-        console.log("[Command] Handling buy_custom_token input as command:", command);
-        result = await handleCustomTokenInput({ session, args: command });
-      } else if (session.currentAction === "buy_amount" && command) {
-        console.log("[Command] Handling buy_amount input as command:", command);
-        result = await handleBuyAmountInput({ session, args: command });
-      } else if (command === "buy") {
-        result = await buyHandler.handler({ session, wallet });
-      } else if (command === "sell") {
-        result = await sellHandler.handler({ session, wallet });
-      } else if (command === "start") {
-        result = await startHandler.handler({ session });
-      } else if (command === "create") {
-        result = await createHandler.handler({ session });
-      } else if (command === "import") {
-        result = await importHandler.handler({ session, wallet });
-      } else if (command === "balance") {
-        result = await balanceHandler.handler({ session, wallet });
-      } else if (command === "history") {
-        result = await historyHandler.handler({ session, wallet });
-      } else if (command === "settings") {
-        result = await settingsHandler.handler({ session });
-      } else if (command === "help") {
-        result = await helpHandler.handler();
-      } else if (command === "deposit") {
-        result = await depositHandler.handler({ session, wallet });
-      } else if (command === "withdraw") {
-        result = await withdrawHandler.handler({ session });
-      } else if (command === "cancel") {
-        session.currentAction = undefined;
-        session.tempData = {};
-        await session.save();
-        result = { response: "Operation cancelled." };
-      } else {
-        console.error("[Command] Unknown command:", command);
-        result = { response: `Unknown command: ${command}\nPlease try /help.` };
-      }
-    } catch (error) {
-      console.error("[Command] Error processing command:", command, error);
-      result = { response: "❌ An error occurred. Please try again later." };
-    }
-
-    await session.save();
-    console.log("[Command] Session saved for userId:", session.userId);
     res.json(result);
     return;
   }
