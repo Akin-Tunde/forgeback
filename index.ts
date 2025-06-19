@@ -767,6 +767,7 @@ app.post(
 
 // index.ts (updated /api/callback)
 
+// index.ts (/api/callback snippet)
 app.post(
   "/api/callback",
   authenticateFarcaster,
@@ -781,57 +782,86 @@ app.post(
 
     console.log(`Received callback: ${callback}, args: ${args}, currentAction: ${session.currentAction}, userId: ${session.userId}, walletAddress: ${session.walletAddress}, sessionId: ${req.sessionID}`);
 
-    if (callback === "import_wallet" && args) {
-      console.log("Processing private key input with args:", args);
-      if (session.currentAction !== "import_wallet") {
-        console.warn("currentAction was undefined or incorrect, setting to import_wallet");
-        session.currentAction = "import_wallet";
+    try {
+      if (callback === "import_wallet" && args) {
+        console.log("Processing private key input with args:", args);
+        if (session.currentAction !== "import_wallet") {
+          console.warn("currentAction was undefined or incorrect, setting to import_wallet");
+          session.currentAction = "import_wallet";
+        }
+        result = await handlePrivateKeyInput({
+          session,
+          args,
+          wallet,
+        });
+      } else if (session.currentAction === "import_wallet" && args) {
+        console.log("Processing private key input (legacy condition):", args);
+        result = await handlePrivateKeyInput({
+          session,
+          args,
+          wallet,
+        });
+      } else if (session.currentAction === "export_wallet") {
+        if (callback === "confirm_yes" || callback === "confirm_no") {
+          console.log(`Handling export confirmation: ${callback}`);
+          result = await handleExportConfirmation(
+            { session, wallet },
+            callback === "confirm_yes"
+          );
+        } else {
+          console.log("Invalid callback for export confirmation:", callback);
+          result = { response: "❌ Invalid callback for export confirmation." };
+        }
+      } else if (callback === "check_balance") {
+        console.log("Handling check_balance callback");
+        result = await balanceHandler.handler({ session, wallet });
+      } else if (callback === "check_history") {
+        console.log("Handling check_history callback");
+        result = await historyHandler.handler({ session, wallet });
+      } else if (callback === "buy_token") {
+        console.log("Handling buy_token callback");
+        result = await buyHandler.handler({ session, wallet });
+      } else if (callback === "sell_token") {
+        console.log("Handling sell_token callback");
+        result = await sellHandler.handler({ session, wallet });
+      } else if (callback === "open_settings") {
+        console.log("Handling open_settings callback");
+        result = await settingsHandler.handler({ session });
+      } else if (callback === "help") {
+        console.log("Handling help callback");
+        result = await helpHandler.handler();
+      } else if (callback === "deposit") {
+        console.log("Handling deposit callback");
+        result = await depositHandler.handler({ session, wallet });
+      } else if (callback === "withdraw") {
+        console.log("Handling withdraw callback");
+        result = await withdrawHandler.handler({ session, wallet });
+      } else if (callback === "export_key") {
+        console.log("Handling export_key callback for userId:", session.userId);
+        result = await exportHandler.handler({ session, wallet });
+      } else if (callback === "confirm_create_wallet") {
+        session.walletAddress = undefined;
+        result = await createHandler.handler({ session });
+      } else if (callback === "cancel_create_wallet") {
+        result = {
+          response: "Operation cancelled. Your existing wallet remains unchanged.",
+        };
+      } else if (callback === "confirm_import_wallet") {
+        session.walletAddress = undefined;
+        console.log("Confirming import wallet, clearing walletAddress");
+        result = await importHandler.handler({ session, wallet });
+      } else if (callback === "cancel_import_wallet") {
+        session.currentAction = undefined;
+        result = {
+          response: "Operation cancelled. Your existing wallet remains unchanged.",
+        };
+      } else {
+        console.log("Unknown callback received:", callback);
+        result = { response: "❌ Unknown callback." };
       }
-      result = await handlePrivateKeyInput({
-        session,
-        args,
-        wallet,
-      });
-    } else if (session.currentAction === "import_wallet" && args) {
-      console.log("Processing private key input (legacy condition):", args);
-      result = await handlePrivateKeyInput({
-        session,
-        args,
-        wallet,
-      });
-    } else if (callback === "check_balance") {
-      console.log("Handling check_balance callback");
-      result = await balanceHandler.handler({ session, wallet });
-    } else if (callback === "check_history") {
-      console.log("Handling check_history callback");
-      result = await historyHandler.handler({ session, wallet });
-    } else if (callback === "buy_token") {
-      console.log("Handling buy_token callback");
-      result = await buyHandler.handler({ session, wallet });
-    } else if (callback === "sell_token") {
-      console.log("Handling sell_token callback");
-      result = await sellHandler.handler({ session, wallet });
-    } else if (callback === "open_settings") {
-      console.log("Handling open_settings callback");
-      result = await settingsHandler.handler({ session });
-    } else if (callback === "help") {
-      console.log("Handling help callback");
-      result = await helpHandler.handler();
-    } else if (callback === "import_wallet") {
-      console.log("Triggering importHandler for import_wallet callback");
-      result = await importHandler.handler({ session, wallet });
-    } else if (callback === "confirm_import_wallet") {
-      session.walletAddress = undefined;
-      console.log("Confirming import wallet, clearing walletAddress");
-      result = await importHandler.handler({ session, wallet });
-    } else if (callback === "cancel_import_wallet") {
-      session.currentAction = undefined;
-      result = {
-        response: "Operation cancelled. Your existing wallet remains unchanged.",
-      };
-    } else {
-      console.log("Unknown callback received:", callback);
-      result = { response: "❌ Unknown callback." };
+    } catch (error) {
+      console.error("Error processing callback:", callback, error);
+      result = { response: "❌ An error occurred. Please try again later." };
     }
 
     req.session.save((err) => {

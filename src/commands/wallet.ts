@@ -1,4 +1,4 @@
-// src/handlers/wallet.ts
+// src/commands/wallet.ts
 import { CommandContext, CommandHandler } from "../types/commands";
 import { getWallet, generateWallet } from "../lib/token-wallet";
 import { verifyEncryptionKey } from "../lib/encryption";
