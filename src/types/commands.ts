@@ -1,5 +1,4 @@
 // src/types/commands.ts
-import { Session } from "express-session";
 import { UserSettings } from "./config";
 import { WalletData } from "./wallet";
 
@@ -14,10 +13,8 @@ export interface SessionData {
   displayName?: string;
 }
 
-export type ExtendedSession = Session & SessionData;
-
 export interface CommandContext {
-  session: ExtendedSession;
+  session: SessionData;
   wallet?: WalletData;
   args?: string;
 }
