@@ -108,6 +108,11 @@ export async function handleTokenSelection(context: CommandContext): Promise<{
       };
     }
 
+    // Re-fetch ETH balance to ensure accuracy
+    const ethBalance = await getEthBalance(session.tempData!.walletAddress as `0x${string}`);
+    console.log("[Buy] ETH balance in handleTokenSelection for userId:", session.userId, "address:", session.tempData!.walletAddress, "balance:", ethBalance);
+    session.tempData!.balance = ethBalance; // Update session to ensure ETH balance
+
     session.tempData!.toToken = tokenInfo.address;
     session.tempData!.toSymbol = tokenInfo.symbol;
     session.tempData!.toDecimals = tokenInfo.decimals;
@@ -116,6 +121,7 @@ export async function handleTokenSelection(context: CommandContext): Promise<{
     await session.save();
     console.log("[Buy] Session saved: userId =", session.userId, "currentAction =", session.currentAction);
 
+    
     const formattedBalance = formatEthBalance(session.tempData!.balance);
     console.log("[Buy] Formatted balance for display:", formattedBalance);
 
