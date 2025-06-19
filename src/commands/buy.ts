@@ -175,12 +175,11 @@ export async function handleCustomTokenInput(context: CommandContext): Promise<{
     console.log("[Buy] ETH balance in handleTokenSelection for userId:", session.userId, "address:", session.tempData!.walletAddress, "balance:", ethBalance);
     session.tempData!.balance = ethBalance; // Update session to ensure ETH balance
 
+    const formattedBalance = formatEthBalance(ethBalance);
     return {
       response: `💱 Buy ${tokenInfo.symbol}\n\nYou are buying ${
         tokenInfo.symbol
-      } with ETH.\n\nYour ETH balance: ${formatEthBalance(
-        session.tempData!.balance
-      )} ETH\n\nPlease enter ${ethBalance} the amount of ETH you want to spend:`.replace(
+      } with ETH.\n\nYour ETH balance: ${formattedBalance} ETH\n\nPlease enter the amount of ETH you want to spend:`.replace(
         /`/g,
         ""
       ),
