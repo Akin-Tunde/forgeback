@@ -28,6 +28,7 @@ import {
 import { isValidPrivateKey } from "../utils/validators";
 import { isValidAddress } from "../utils/validators";
 
+//import {client as publicClient} from "../utils/constants";
 // *** WALLET FUNCTIONS *** //
 
 /**
@@ -40,6 +41,20 @@ function createClient(account: Account): WalletClient {
     transport: http(QUICKNODE_RPC_URL),
   });
 }
+
+/**
+function createClient(account: Account): WalletClient {
+  return createWalletClient({
+    account,
+    chain: base,
+    transport: http(`https://base-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`),
+  });
+}
+
+export function createPublicClientForBase() {
+  return publicClient;
+}
+ */
 
 /**
  * Create a public client for Base network

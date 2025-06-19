@@ -745,6 +745,7 @@ app.post(
 );
 
 // index.ts (/api/callback snippet)
+// index.ts (/api/callback snippet)
 app.post(
   "/api/callback",
   authenticateFarcaster,
@@ -760,7 +761,16 @@ app.post(
     console.log(`[Callback] Received: callback=${callback}, args=${JSON.stringify(args)}, currentAction=${session.currentAction}, userId=${session.userId}, walletAddress=${session.walletAddress}, sessionId=${req.sessionID}, wallet=${wallet ? 'exists' : 'undefined'}`);
 
     try {
-      if (session.currentAction === "export_wallet" && (callback === "confirm_yes" || callback === "Confirm" || callback === "confirm_no")) {
+      if (callback === null && args && isValidAddress(args)) {
+        console.warn("[Callback] Unexpected null callback with address args:", args, "currentAction:", session.currentAction);
+        if (session.currentAction === "buy_custom_token") {
+          console.log("[Callback] Handling custom token input:", args, "for userId:", session.userId);
+          result = await handleCustomTokenInput({ session, args });
+        } else {
+          console.error("[Callback] Invalid state: null callback with args but incorrect currentAction:", session.currentAction);
+          result = { response: "❌ Invalid session state. Please restart the buy process with /buy." };
+        }
+      } else if (session.currentAction === "export_wallet" && (callback === "confirm_yes" || callback === "Confirm" || callback === "confirm_no")) {
         console.log(`[Callback] Handling export confirmation: ${callback}, userId=${session.userId}`);
         result = await handleExportConfirmation(
           { session, wallet },
@@ -782,11 +792,11 @@ app.post(
       } else if (callback === "settings_gasPriority") {
         console.log("[Callback] Handling settings_gasPriority for userId:", session.userId);
         result = await handleSettingsOption({ session }, "gasPriority");
-      } else if (callback.startsWith("slippage_")) {
+      } else if (callback?.startsWith("slippage_")) {
         console.log("[Callback] Processing slippage selection:", callback);
         const value = parseFloat(callback.replace("slippage_", ""));
         result = await updateSlippage({ session }, value);
-      } else if (callback.startsWith("gasPriority_")) {
+      } else if (callback?.startsWith("gasPriority_")) {
         console.log("[Callback] Processing gas priority selection:", callback);
         const priority = callback.replace("gasPriority_", "") as "low" | "medium" | "high";
         result = await updateGasPriority({ session }, priority);
@@ -863,11 +873,11 @@ app.post(
           response: "Operation cancelled. Your existing wallet remains unchanged.",
         };
       } else {
-        console.error("[Callback] Unknown callback:", callback);
-        result = { response: "❌ Unknown callback." };
+        console.error("[Callback] Unknown callback:", callback, "args:", args, "currentAction:", session.currentAction);
+        result = { response: "❌ Unknown callback or invalid session state." };
       }
     } catch (error) {
-      console.error("[Callback] Error processing callback:", callback, error);
+      console.error("[Callback] Error processing callback:", callback, "args:", args, error);
       result = { response: "❌ An error occurred. Please try again later." };
     }
 

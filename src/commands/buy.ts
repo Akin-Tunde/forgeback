@@ -53,6 +53,7 @@ export const buyHandler = {
         walletAddress: wallet.address,
         balance,
       };
+      await session.save();
 
       const buttons = [
         [
@@ -88,6 +89,8 @@ export async function handleTokenSelection(context: CommandContext): Promise<{
   try {
     if (tokenSymbol === "custom") {
       session.currentAction = "buy_custom_token";
+      await session.save();
+      console.log("[Buy] Session saved: currentAction=buy_custom_token, userId:", session.userId);
       return {
         response:
           `💱 Buy Custom Token\n\nPlease send the ERC-20 token address you want to buy.\n\nThe address should look like: 0x1234...5678\n\nYou can cancel this operation by typing /cancel`.replace(
@@ -113,6 +116,7 @@ export async function handleTokenSelection(context: CommandContext): Promise<{
     session.tempData!.toSymbol = tokenInfo.symbol;
     session.tempData!.toDecimals = tokenInfo.decimals;
     session.currentAction = "buy_amount";
+    await session.save();
 
     return {
       response: `💱 Buy ${tokenInfo.symbol}\n\nYou are buying ${
@@ -167,7 +171,6 @@ export async function handleCustomTokenInput(context: CommandContext): Promise<{
     session.tempData!.toSymbol = tokenInfo.symbol;
     session.tempData!.toDecimals = tokenInfo.decimals;
     session.currentAction = "buy_amount";
-
     await session.save();
     console.log("[Buy] Session updated for userId:", userId, "tempData =", session.tempData);
 
@@ -183,7 +186,7 @@ export async function handleCustomTokenInput(context: CommandContext): Promise<{
     };
   } catch (error) {
     console.error("[Buy] Error handling custom token input for userId:", session?.userId, "input =", input, error);
-    return { response: "❌ An error occurred while processing the token address. Please try again later." };
+    return { response: "❌ Failed to process token address. Please check the address and try again." };
   }
 }
 
@@ -250,6 +253,7 @@ export async function handleBuyAmountInput(context: CommandContext): Promise<{
     );
 
     session.currentAction = "buy_confirm";
+    await session.save();
 
     const buttons = [
       [
@@ -287,6 +291,7 @@ export async function handleBuyConfirmation(
     if (!confirmed) {
       session.currentAction = undefined;
       session.tempData = {};
+      await session.save();
       return { response: "Trade cancelled." };
     }
 
@@ -345,6 +350,7 @@ export async function handleBuyConfirmation(
 
     session.currentAction = undefined;
     session.tempData = {};
+    await session.save();
 
     if (receipt.status === "success") {
       return {
@@ -370,6 +376,7 @@ export async function handleBuyConfirmation(
     console.error("[Buy] Error processing buy confirmation for userId:", session?.userId, error);
     session.currentAction = undefined;
     session.tempData = {};
+    await session.save();
     return {
       response:
         "❌ An error occurred while processing your trade. Please try again later.",
