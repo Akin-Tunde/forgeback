@@ -80,7 +80,7 @@ export const startHandler: CommandHandler = {
         buttons: [
           [
             { label: "💰 Balance", callback: "check_balance" },
-            { label: "📊 History", callback: "/history" },
+            { label: "📊 History", callback: "check_history" },
           ],
           [
             { label: "💱 Buy Token", callback: "buy_token" },

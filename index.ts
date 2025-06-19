@@ -803,6 +803,20 @@ app.post(
         );
         session.currentAction = undefined;
         await session.save();
+      } else if (callback === "settings_slippage") {
+        console.log("[Callback] Handling settings_slippage for userId:", session.userId);
+        result = await handleSettingsOption({ session }, "slippage");
+      } else if (callback === "settings_gasPriority") {
+        console.log("[Callback] Handling settings_gasPriority for userId:", session.userId);
+        result = await handleSettingsOption({ session }, "gasPriority");
+      } else if (callback.startsWith("slippage_")) {
+        console.log("[Callback] Processing slippage selection:", callback);
+        const value = parseFloat(callback.replace("slippage_", ""));
+        result = await updateSlippage({ session }, value);
+      } else if (callback.startsWith("gasPriority_")) {
+        console.log("[Callback] Processing gas priority selection:", callback);
+        const priority = callback.replace("gasPriority_", "") as "low" | "medium" | "high";
+        result = await updateGasPriority({ session }, priority);
       } else if (callback === "import_wallet" && args) {
         console.log("[Callback] Processing private key input with args:", args);
         if (session.currentAction !== "import_wallet") {
