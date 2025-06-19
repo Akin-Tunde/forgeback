@@ -68,7 +68,7 @@ export const buyHandler = {
       ];
 
       const formattedBalance = formatEthBalance(balance);
-      console.log("[Buy] Formatted balance for display:", formattedBalance);
+      console.log("[Buyers] Formatted balance for display:", formattedBalance);
       return {
         response: `💱 Buy Tokens with ETH\n\nYour ETH balance: ${formattedBalance} ETH\n\nSelect a token to buy or choose "Custom Token" to enter a specific token address:`,
         buttons,
