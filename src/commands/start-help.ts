@@ -1,4 +1,4 @@
-// src/handlers/start.ts
+// src/commands/start-help.ts
 import { CommandHandler, CommandContext } from "../types/commands";
 import {
   createUser,
