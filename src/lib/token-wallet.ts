@@ -28,12 +28,12 @@ import {
 import { isValidPrivateKey } from "../utils/validators";
 import { isValidAddress } from "../utils/validators";
 
-//import {client as publicClient} from "../utils/constants";
+import {client as publicClient} from "../utils/constants";
 // *** WALLET FUNCTIONS *** //
 
 /**
  * Create a wallet client for the given private key
- */
+ 
 function createClient(account: Account): WalletClient {
   return createWalletClient({
     account,
@@ -41,8 +41,8 @@ function createClient(account: Account): WalletClient {
     transport: http(QUICKNODE_RPC_URL),
   });
 }
+*/
 
-/**
 function createClient(account: Account): WalletClient {
   return createWalletClient({
     account,
@@ -54,18 +54,17 @@ function createClient(account: Account): WalletClient {
 export function createPublicClientForBase() {
   return publicClient;
 }
- */
-
+ 
 /**
  * Create a public client for Base network
- */
+
 export function createPublicClientForBase() {
   return createPublicClient({
     chain: base,
     transport: http(QUICKNODE_RPC_URL),
   });
 }
-
+ */
 /**
  * Generate a new wallet
  */
