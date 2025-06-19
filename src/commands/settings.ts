@@ -75,13 +75,23 @@ export async function handleSettingsOption(
     }
 
     console.log("[Settings] Handling option:", option, "for userId:", userId);
+    // Fetch fresh settings from Supabase
+    const settings = (await getUserSettings(userId)) || {
+      userId,
+      slippage: 1.0,
+      gasPriority: "medium",
+    };
+    console.log("[Settings] Fetched settings for handleSettingsOption:", settings);
+
     session.currentAction = `settings_${option}`;
+    session.settings = settings;
     await session.save();
+    console.log("[Settings] Session updated with currentAction and settings for userId:", userId);
 
     switch (option) {
       case "slippage":
         return {
-          response: `🔄 Slippage Tolerance Setting\n\nSlippage tolerance is the maximum price difference you're willing to accept for a trade.\n\nCurrent setting: ${session.settings?.slippage}%\n\nSelect a new slippage tolerance:`,
+          response: `🔄 Slippage Tolerance Setting\n\nSlippage tolerance is the maximum price difference you're willing to accept for a trade.\n\nCurrent setting: ${settings.slippage}%\n\nSelect a new slippage tolerance:`,
           buttons: [
             [
               { label: "0.5%", callback: "slippage_0.5" },
@@ -93,7 +103,7 @@ export async function handleSettingsOption(
       case "gasPriority":
         return {
           response: `⛽ Gas Priority Setting\n\nGas priority determines how quickly your transactions are likely to be processed.\n\nCurrent setting: ${getGasPriorityLabel(
-            session.settings?.gasPriority || "medium"
+            settings.gasPriority
           )}\n\nSelect a new gas priority:`,
           buttons: [
             [
