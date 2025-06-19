@@ -117,6 +117,7 @@ export async function handlePrivateKeyInput(context: CommandContext): Promise<{
   }
 }
 
+// src/commands/import-export.ts (exportHandler only)
 export const exportHandler = {
   command: "export",
   description: "Display private key (with confirmation prompt)",
@@ -151,6 +152,12 @@ export const exportHandler = {
           }
         });
       });
+
+      // Double-check session state
+      if (session.currentAction !== "export_wallet") {
+        console.error("exportHandler: Session currentAction not persisted, currentAction:", session.currentAction);
+        return { response: "❌ Session error. Please try again." };
+      }
 
       const buttons = [
         [

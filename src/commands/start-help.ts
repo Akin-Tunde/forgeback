@@ -84,7 +84,7 @@ export const startHandler: CommandHandler = {
           ],
           [
             { label: "💱 Buy Token", callback: "buy_token" },
-            { label: "💱 Sell Token", callback: "/sell" },
+            { label: "💱 Sell Token", callback: "sell_token" },
           ],
           [
             { label: "⚙️ Settings", callback: "/settings" },

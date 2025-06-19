@@ -768,6 +768,7 @@ app.post(
 // index.ts (updated /api/callback)
 
 // index.ts (/api/callback snippet)
+
 app.post(
   "/api/callback",
   authenticateFarcaster,
@@ -780,7 +781,7 @@ app.post(
       : undefined;
     let result;
 
-    console.log(`Received callback: ${callback}, args: ${args}, currentAction: ${session.currentAction}, userId: ${session.userId}, walletAddress: ${session.walletAddress}, sessionId: ${req.sessionID}`);
+    console.log(`Received callback: ${callback}, args: ${JSON.stringify(args)}, currentAction: ${session.currentAction}, userId: ${session.userId}, walletAddress: ${session.walletAddress}, sessionId: ${req.sessionID}`);
 
     try {
       if (callback === "import_wallet" && args) {
@@ -794,6 +795,7 @@ app.post(
         console.log("Processing private key input (legacy condition):", args);
         result = await handlePrivateKeyInput({ session, args, wallet });
       } else if (session.currentAction === "export_wallet") {
+        console.log(`Processing export_wallet action with callback: ${callback}`);
         if (callback === "confirm_yes" || callback === "confirm_no") {
           console.log(`Handling export confirmation: ${callback}`);
           result = await handleExportConfirmation(
@@ -801,7 +803,7 @@ app.post(
             callback === "confirm_yes"
           );
         } else {
-          console.log("Invalid callback for export confirmation:", callback);
+          console.error(`Invalid callback for export_wallet: ${callback}`);
           result = { response: "❌ Invalid callback for export confirmation." };
         }
       } else if (callback === "check_balance") {
@@ -848,7 +850,7 @@ app.post(
           response: "Operation cancelled. Your existing wallet remains unchanged.",
         };
       } else {
-        console.log("Unknown callback received:", callback);
+        console.error("Unknown callback received:", callback);
         result = { response: "❌ Unknown callback." };
       }
     } catch (error) {
@@ -862,6 +864,7 @@ app.post(
           console.error("index.ts: Error saving session for userId:", session.userId, err);
           reject(err);
         } else {
+          console.log("index.ts: Session saved successfully for userId:", session.userId);
           resolve(null);
         }
       });
