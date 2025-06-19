@@ -161,17 +161,6 @@ export async function handleCustomTokenInput(context: CommandContext): Promise<{
       };
     }
 
-    // Check session.tempData and walletAddress
-    if (!session.tempData || !session.tempData.walletAddress) {
-      console.warn("[Buy] session.tempData.walletAddress is undefined, userId:", userId, "tempData:", session.tempData);
-      if (!wallet) {
-        return { response: "❌ Wallet not found. Please restart with /buy." };
-      }
-      session.tempData = session.tempData || {};
-      session.tempData.walletAddress = wallet.address;
-      console.log("[Buy] Restored walletAddress from wallet:", wallet.address);
-    }
-
     console.log("[Buy] Token info retrieved:", tokenInfo);
     session.tempData!.toToken = tokenInfo.address;
     session.tempData!.toSymbol = tokenInfo.symbol;
@@ -190,7 +179,7 @@ export async function handleCustomTokenInput(context: CommandContext): Promise<{
     return {
       response: `💱 Buy ${tokenInfo.symbol}\n\nYou are buying ${
         tokenInfo.symbol
-      } with ETH.\n\nYour ETH balance: ${formattedBalance} ETH\n\nPlease enter the amount of ETH you want to spend:`.replace(
+      } with ETH. ETH\n\nPlease enter the amount of ETH you want to spend:`.replace(
         /`/g,
         ""
       ),
