@@ -118,6 +118,8 @@ export async function handlePrivateKeyInput(context: CommandContext): Promise<{
 }
 
 // src/commands/import-export.ts (exportHandler only)
+// src/commands/import-export.ts (exportHandler only)
+// src/commands/import-export.ts (exportHandler only)
 export const exportHandler = {
   command: "export",
   description: "Display private key (with confirmation prompt)",
@@ -125,39 +127,24 @@ export const exportHandler = {
     try {
       const userId = session.userId;
       if (!userId) {
-        console.error("exportHandler: No userId found");
+        console.error("[Export] No userId found, session:", session);
         return {
           response: "❌ Please start the bot first with /start command.",
         };
       }
 
       if (!wallet) {
-        console.error("exportHandler: No wallet found for userId:", userId);
+        console.error("[Export] No wallet found for userId:", userId);
         return {
           response:
             "❌ You don’t have a wallet yet.\n\nUse /create to create a new wallet or /import to import an existing one.",
         };
       }
 
-      console.log("exportHandler: Initiating export for userId:", userId, "wallet address:", wallet.address);
+      console.log("[Export] Initiating export for userId:", userId, "wallet address:", wallet.address);
       session.currentAction = "export_wallet";
-      await new Promise((resolve, reject) => {
-        session.save((err: Error | null) => {
-          if (err) {
-            console.error("exportHandler: Error saving session for userId:", userId, err);
-            reject(err);
-          } else {
-            console.log("exportHandler: Session saved with currentAction = export_wallet for userId:", userId);
-            resolve(null);
-          }
-        });
-      });
-
-      // Double-check session state
-      if (session.currentAction !== "export_key") {
-        console.error("exportHandler: Session currentAction not persisted, currentAction:", session.currentAction);
-        return { response: "❌ Session error. Please try again." };
-      }
+      await session.save();
+      console.log("[Export] Session saved with currentAction=export_wallet for userId:", userId);
 
       const buttons = [
         [
@@ -171,12 +158,13 @@ export const exportHandler = {
         buttons,
       };
     } catch (error) {
-      console.error("Error in export command for userId:", session?.userId, error);
+      console.error("[Export] Error in export command for userId:", session?.userId, error);
       return { response: "❌ An error occurred. Please try again later." };
     }
   },
 };
 
+// ... (importHandler, handlePrivateKeyInput, handleExportConfirmation unchanged)
 export async function handleExportConfirmation(
   context: CommandContext,
   confirmed: boolean

@@ -1,4 +1,7 @@
+// src/lib/database.ts
+
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import session from 'express-session';
 import { WalletData } from "../types/wallet";
 import { UserSettings } from "../types/config";
 import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY, DB_TABLES } from "../utils/constants";
@@ -46,6 +49,88 @@ type TransactionRow = {
 export function initDatabase(): void {
   console.log("Supabase database initialization handled externally. Ensure tables are created in your Supabase project.");
 }
+
+// Supabase Session Store
+export class SupabaseSessionStore extends session.Store {
+  private tableName: string;
+  private ttl: number;
+
+  constructor(private supabase: SupabaseClient, options: { tableName: string; ttl: number }) {
+    super();
+    this.tableName = options.tableName;
+    this.ttl = options.ttl;
+  }
+async get(sid: string, callback: (err: any, session?: any) => void) {
+    try {
+      const { data, error } = await this.supabase
+        .from(this.tableName)
+        .select("session, expires")
+        .eq("sid", sid)
+        .single();
+      if (error) {
+        console.error("[SessionStore] Get error for sid:", sid, error);
+        return callback(error);
+      }
+      if (!data || new Date(data.expires) < new Date()) {
+        console.log("[SessionStore] No session or expired for sid:", sid);
+        return callback(null, null);
+      }
+      console.log("[SessionStore] Retrieved session for sid:", sid);
+      callback(null, JSON.parse(data.session));
+    } catch (err) {
+      console.error("[SessionStore] Get exception for sid:", sid, err);
+      callback(err);
+    }
+  }
+
+  async set(sid: string, session: any, callback: (err?: any) => void) {
+    try {
+      const expires = new Date(Date.now() + this.ttl * 1000).toISOString();
+      console.log("[SessionStore] Setting session for sid:", sid, "expires:", expires);
+      const { error } = await this.supabase
+        .from(this.tableName)
+        .upsert({
+          sid,
+          session: JSON.stringify(session),
+          expires,
+        });
+      if (error) {
+        console.error("[SessionStore] Set error for sid:", sid, error);
+        throw error;
+      }
+      console.log("[SessionStore] Session set successfully for sid:", sid);
+      callback();
+    } catch (err) {
+      console.error("[SessionStore] Set exception for sid:", sid, err);
+      callback(err);
+    }
+  }
+
+  async destroy(sid: string, callback: (err?: any) => void) {
+    try {
+      console.log("[SessionStore] Destroying session for sid:", sid);
+      const { error } = await this.supabase
+        .from(this.tableName)
+        .delete()
+        .eq("sid", sid);
+      if (error) {
+        console.error("[SessionStore] Destroy error for sid:", sid, error);
+        throw error;
+      }
+      console.log("[SessionStore] Session destroyed for sid:", sid);
+      callback();
+    } catch (err) {
+      console.error("[SessionStore] Destroy exception for sid:", sid, err);
+      callback(err);
+    }
+  }
+}
+
+export const sessionStore = new SupabaseSessionStore(supabase, {
+  tableName: "sessions",
+  ttl: 24 * 60 * 60, // 24 hours
+});
+
 
 // User operations
 export async function createUser(
