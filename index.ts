@@ -52,6 +52,7 @@ import {
 } from "./src/commands/withdraw";
 import { isValidAddress } from "./src/utils/validators";
 
+
 // Extend express-session to include SessionData
 declare module "express-session" {
   interface SessionData {
@@ -65,7 +66,18 @@ declare module "express-session" {
     displayName?: string; // Added
   }
 }
-
+// Add before app.listen
+async function startServer() {
+  try {
+    await initDatabase();
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error("Failed to start server:", err);
+    process.exit(1);
+  }
+}
 // Load environment variables
 dotenv.config();
 
@@ -745,7 +757,6 @@ app.post(
 );
 
 // index.ts (/api/callback snippet)
-// index.ts (/api/callback snippet)
 app.post(
   "/api/callback",
   authenticateFarcaster,
@@ -767,8 +778,11 @@ app.post(
           console.log("[Callback] Handling custom token input:", args, "for userId:", session.userId);
           result = await handleCustomTokenInput({ session, args });
         } else {
-          console.error("[Callback] Invalid state: null callback with args but incorrect currentAction:", session.currentAction);
-          result = { response: "❌ Invalid session state. Please restart the buy process with /buy." };
+          console.warn("[Callback] Resetting currentAction to buy_custom_token for address input:", args);
+          session.currentAction = "buy_custom_token";
+          await session.save();
+          console.log("[Callback] Session saved: userId =", session.userId, "currentAction =", session.currentAction);
+          result = await handleCustomTokenInput({ session, args });
         }
       } else if (session.currentAction === "export_wallet" && (callback === "confirm_yes" || callback === "Confirm" || callback === "confirm_no")) {
         console.log(`[Callback] Handling export confirmation: ${callback}, userId=${session.userId}`);
@@ -887,7 +901,6 @@ app.post(
     return;
   }
 );
-
 // Other imports and app setup remain unchanged
 
 // ... (rest of index.ts unchanged: other routes, server start, SIGINT handler)
