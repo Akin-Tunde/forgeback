@@ -161,9 +161,16 @@ export function getPrivateKey(wallet: WalletData): string {
  * Get ETH balance for an address
  */
 export async function getEthBalance(address: Address): Promise<string> {
-  const publicClient = createPublicClientForBase();
-  const balance = await publicClient.getBalance({ address });
-  return balance.toString();
+  try {
+    console.log("[getEthBalance] Fetching ETH balance for address:", address);
+    const balance = await publicClient.getBalance({ address });
+    const balanceWei = balance.toString();
+    console.log("[getEthBalance] Success: address =", address, "balance =", balanceWei, "wei");
+    return balanceWei;
+  } catch (error) {
+    console.error("[getEthBalance] Error fetching ETH balance for address:", address, error);
+    return "0";
+  }
 }
 
 /**

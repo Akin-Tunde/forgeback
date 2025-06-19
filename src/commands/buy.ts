@@ -38,6 +38,7 @@ export const buyHandler = {
       }
 
       const balance = await getEthBalance(wallet.address as `0x${string}`);
+      console.log("[Buy] ETH balance for userId:", userId, "address:", wallet.address, "balance:", balance);
       if (BigInt(balance) <= BigInt(0)) {
         return {
           response:
@@ -66,14 +67,10 @@ export const buyHandler = {
         [{ label: "Custom Token", callback: "custom" }],
       ];
 
+      const formattedBalance = formatEthBalance(balance);
+      console.log("[Buy] Formatted balance for display:", formattedBalance);
       return {
-        response:
-          `💱 Buy Tokens with ETH\n\nYour ETH balance: ${formatEthBalance(
-            balance
-          )} ETH\n\nSelect a token to buy or choose "Custom Token" to enter a specific token address:`.replace(
-            /`/g,
-            ""
-          ),
+        response: `💱 Buy Tokens with ETH\n\nYour ETH balance: ${formattedBalance} ETH\n\nSelect a token to buy or choose "Custom Token" to enter a specific token address:`,
         buttons,
       };
     } catch (error) {
@@ -95,11 +92,7 @@ export async function handleTokenSelection(context: CommandContext): Promise<{
       await session.save();
       console.log("[Buy] Session saved: userId =", session.userId, "currentAction =", session.currentAction);
       return {
-        response:
-          `💱 Buy Custom Token\n\nPlease send the ERC-20 token address you want to buy.\n\nThe address should look like: 0x1234...5678\n\nYou can cancel this operation by typing /cancel`.replace(
-            /`/g,
-            ""
-          ),
+        response: `💱 Buy Custom Token\n\nPlease send the ERC-20 token address you want to buy.\n\nThe address should look like: 0x1234...5678\n\nYou can cancel this operation by typing /cancel`,
       };
     }
 
@@ -123,15 +116,12 @@ export async function handleTokenSelection(context: CommandContext): Promise<{
     await session.save();
     console.log("[Buy] Session saved: userId =", session.userId, "currentAction =", session.currentAction);
 
+    const formattedBalance = formatEthBalance(session.tempData!.balance);
+    console.log("[Buy] Formatted balance for display:", formattedBalance);
     return {
       response: `💱 Buy ${tokenInfo.symbol}\n\nYou are buying ${
         tokenInfo.symbol
-      } with ETH.\n\nYour ETH balance: ${formatEthBalance(
-        session.tempData!.balance
-      )} ETH\n\nPlease enter the amount of ETH you want to spend:`.replace(
-        /`/g,
-        ""
-      ),
+      } with ETH.\n\nYour ETH balance: ${formattedBalance} ETH\n\nPlease enter the amount of ETH you want to spend:`,
     };
   } catch (error) {
     console.error("[Buy] Error handling token selection for userId:", session?.userId, error);

@@ -4,14 +4,21 @@ import { TokenInfo } from "../types/config";
 /**
  * Format ETH balance with proper decimals
  */
-export function formatEthBalance(balanceWei: string | bigint): string {
+export function formatEthBalance(balance: string | undefined): string {
   try {
-    const formatted = formatEther(typeof balanceWei === "string" ? BigInt(balanceWei) : balanceWei);
-    // Format to 6 decimal places
-    return parseFloat(formatted).toFixed(6);
+    console.log("[formatEthBalance] Formatting balance:", balance);
+    if (!balance || isNaN(Number(balance))) {
+      console.warn("[formatEthBalance] Invalid or undefined balance, returning 0");
+      return "0.0000";
+    }
+    const balanceBigInt = BigInt(balance);
+    const formatted = formatUnits(balanceBigInt, 18);
+    const result = parseFloat(formatted).toFixed(4);
+    console.log("[formatEthBalance] Formatted balance:", result);
+    return result;
   } catch (error) {
-    console.error("Error formatting ETH balance:", error);
-    return "0.000000";
+    console.error("[formatEthBalance] Error formatting balance:", balance, error);
+    return "0.0000";
   }
 }
 
