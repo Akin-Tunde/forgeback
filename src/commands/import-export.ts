@@ -154,7 +154,7 @@ export const exportHandler = {
       });
 
       // Double-check session state
-      if (session.currentAction !== "export_wallet") {
+      if (session.currentAction !== "export_key") {
         console.error("exportHandler: Session currentAction not persisted, currentAction:", session.currentAction);
         return { response: "❌ Session error. Please try again." };
       }
