@@ -129,7 +129,7 @@ export async function handleTokenSelection(context: CommandContext): Promise<{
     return {
       response: `💱 Buy ${tokenInfo.symbol}\n\nYou are buying ${
         tokenInfo.symbol
-      } with ETH.\n\nYour ETH balance: ${formattedBalance} ETH\n\nPlease enter the amount ${formatEthBalance(session.tempData!.balance)} of ETH you want to spend:`,
+      } with ETH.\n\nYour ETH balance: ${formattedBalance} ETH\n\nPlease enter the amount ${ethBalance} of ETH you want to spend:`,
     };
   } catch (error) {
     console.error("[Buy] Error handling token selection for userId:", session?.userId, error);
