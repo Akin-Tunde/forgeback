@@ -236,44 +236,62 @@ export async function deleteWallet(address: string): Promise<void> {
 }
 
 // Settings operations
+// src/lib/database.ts (only modified functions)
 export async function saveUserSettings(
   userId: string,
   settings: Omit<UserSettings, "userId">
 ): Promise<void> {
-  const { error } = await supabase
-    .from(DB_TABLES.SETTINGS)
-    .upsert({
-      userId,
-      slippage: settings.slippage,
-      gasPriority: settings.gasPriority,
-    })
-    .single();
+  try {
+    console.log("[Database] saveUserSettings: Saving settings for userId:", userId, "settings:", settings);
+    const { error } = await supabase
+      .from(DB_TABLES.SETTINGS)
+      .upsert({
+        userId,
+        slippage: settings.slippage,
+        gasPriority: settings.gasPriority,
+      })
+      .single();
 
-  if (error) {
-    console.error("Error saving user settings:", error.message);
-    throw new Error("Failed to save user settings.");
+    if (error) {
+      console.error("[Database-error] saveUserSettings: Error for userId:", userId, error);
+      throw new Error(`Failed to save user settings: ${error.message}`);
+    }
+    console.log("[Database] saveUserSettings: Successfully saved settings for userId:", userId);
+  } catch (err) {
+    console.error("[Database-error] saveUserSettings: Exception for userId:", userId, err);
+    throw err;
   }
 }
 
 export async function getUserSettings(userId: string): Promise<UserSettings | null> {
-  const { data, error } = await supabase
-    .from(DB_TABLES.SETTINGS)
-    .select('*')
-    .eq('userId', userId)
-    .single();
+  try {
+    console.log("[Database] getUserSettings: Fetching settings for userId:", userId);
+    const { data, error } = await supabase
+      .from(DB_TABLES.SETTINGS)
+      .select('*')
+      .eq('userId', userId)
+      .single();
 
-  if (error && error.code !== 'PGRST116') {
-    console.error("Error getting user settings:", error.message);
-    throw new Error("Failed to get user settings.");
+    if (error && error.code !== 'PGRST116') {
+      console.error("[Database-error] getUserSettings: Error for userId:", userId, error);
+      throw new Error(`Failed to get user settings: ${error.message}`);
+    }
+
+    if (!data) {
+      console.log("[Database] getUserSettings: No settings found for userId:", userId);
+      return null;
+    }
+
+    console.log("[Database] getUserSettings: Retrieved settings for userId:", userId, data);
+    return {
+      userId: data.userId,
+      slippage: data.slippage,
+      gasPriority: data.gasPriority as UserSettings["gasPriority"],
+    };
+  } catch (err) {
+    console.error("[Database-error] getUserSettings: Exception for userId:", userId, err);
+    throw err;
   }
-
-  if (!data) return null;
-
-  return {
-    userId: data.userId,
-    slippage: data.slippage,
-    gasPriority: data.gasPriority as UserSettings["gasPriority"],
-  };
 }
 
 // Transaction operations
