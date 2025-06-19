@@ -68,7 +68,7 @@ export const buyHandler = {
       ];
 
       const formattedBalance = formatEthBalance(balance);
-      console.log("[Buyers] Formatted balance for display:", formattedBalance);
+      console.log("[Buy] Formatted balance for display:", formattedBalance);
       return {
         response: `💱 Buy Tokens with ETH\n\nYour ETH balance: ${formattedBalance} ETH\n\nSelect a token to buy or choose "Custom Token" to enter a specific token address:`,
         buttons,
@@ -108,11 +108,6 @@ export async function handleTokenSelection(context: CommandContext): Promise<{
       };
     }
 
-    // Re-fetch ETH balance to ensure accuracy
-    const ethBalance = await getEthBalance(session.tempData!.walletAddress as `0x${string}`);
-    console.log("[Buy] ETH balance in handleTokenSelection for userId:", session.userId, "address:", session.tempData!.walletAddress, "balance:", ethBalance);
-    session.tempData!.balance = ethBalance; // Update session to ensure ETH balance
-
     session.tempData!.toToken = tokenInfo.address;
     session.tempData!.toSymbol = tokenInfo.symbol;
     session.tempData!.toDecimals = tokenInfo.decimals;
@@ -121,15 +116,12 @@ export async function handleTokenSelection(context: CommandContext): Promise<{
     await session.save();
     console.log("[Buy] Session saved: userId =", session.userId, "currentAction =", session.currentAction);
 
-    
     const formattedBalance = formatEthBalance(session.tempData!.balance);
     console.log("[Buy] Formatted balance for display:", formattedBalance);
-
-    console.log("[Buyer] Formatted balance for display:", formatEthBalance(session.tempData!.balance));
     return {
       response: `💱 Buy ${tokenInfo.symbol}\n\nYou are buying ${
         tokenInfo.symbol
-      } with ETH.\n\nYour ETH balance: ${formattedBalance} ETH\n\nPlease enter the amount ${ethBalance} of ETH you want  spend:`,
+      } with ETH.\n\nYour ETH balance: ${formattedBalance} ETH\n\nPlease enter the amount of ETH you want to spend:`,
     };
   } catch (error) {
     console.error("[Buy] Error handling token selection for userId:", session?.userId, error);
@@ -178,12 +170,17 @@ export async function handleCustomTokenInput(context: CommandContext): Promise<{
     await session.save();
     console.log("[Buy] Session updated for userId:", userId, "tempData =", session.tempData);
 
+// Re-fetch ETH balance to ensure accuracy
+    const ethBalance = await getEthBalance(session.tempData!.walletAddress as `0x${string}`);
+    console.log("[Buy] ETH balance in handleTokenSelection for userId:", session.userId, "address:", session.tempData!.walletAddress, "balance:", ethBalance);
+    session.tempData!.balance = ethBalance; // Update session to ensure ETH balance
+
     return {
       response: `💱 Buy ${tokenInfo.symbol}\n\nYou are buying ${
         tokenInfo.symbol
       } with ETH.\n\nYour ETH balance: ${formatEthBalance(
         session.tempData!.balance
-      )} ETH\n\nPlease enter the amount of ETH you want to spend:`.replace(
+      )} ETH\n\nPlease enter ${ethBalance} the amount of ETH you want to spend:`.replace(
         /`/g,
         ""
       ),
