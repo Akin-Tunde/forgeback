@@ -5,7 +5,7 @@ import cors from "cors";
 
 import { initDatabase, closeDatabase } from "./src/lib/database";
 import { verifyEncryptionKey } from "./src/lib/encryption";
-import { CommandContext, SessionData } from "./src/types/commands";
+import {ExtendedSession, CommandContext, SessionData } from "./src/types/commands";
 import { verifyFarcasterSignature } from "./src/lib/farcaster";
 import { getWallet } from "./src/lib/token-wallet"; // Import getWallet
 
@@ -195,7 +195,7 @@ app.post(
   ensureSessionData,
   async (req: Request, res: Response): Promise<void> => {
     const result = await startHandler.handler({
-      session: req.session as SessionData,
+      session: req.session as ExtendedSession,
     });
     res.json(result);
     return;
@@ -214,7 +214,7 @@ app.post(
   ensureSessionData,
   async (req: Request, res: Response): Promise<void> => {
     const result = await walletHandler.handler({
-      session: req.session as SessionData,
+      session: req.session as ExtendedSession,
     });
     res.json(result);
     return;
@@ -227,7 +227,7 @@ app.post(
   ensureSessionData,
   async (req: Request, res: Response): Promise<void> => {
     const result = await createHandler.handler({
-      session: req.session as SessionData,
+      session: req.session as ExtendedSession,
     });
     res.json(result);
     return;
@@ -247,17 +247,17 @@ app.post(
     if (callback === "confirm_import_wallet") {
       req.session.walletAddress = undefined;
       result = await importHandler.handler({
-        session: req.session as SessionData,
+        session: req.session as ExtendedSession,
         wallet, // Pass wallet, though importHandler itself might not use it directly for this path
       });
     } else if (req.session.currentAction === "import_wallet") {
       result = await handlePrivateKeyInput({
-        session: req.session as SessionData,
+        session: req.session as ExtendedSession,
         args,
       });
     } else {
       result = await importHandler.handler({
-        session: req.session as SessionData,
+        session: req.session as ExtendedSession,
         wallet,
       });
     }
@@ -278,12 +278,12 @@ app.post(
     let result;
     if (callback === "confirm_yes" || callback === "confirm_no") {
       result = await handleExportConfirmation(
-        { session: req.session as SessionData, wallet },
+        { session: req.session as ExtendedSession, wallet },
         callback === "confirm_yes"
       );
     } else {
       result = await exportHandler.handler({
-        session: req.session as SessionData,
+        session: req.session as ExtendedSession,
         wallet,
       });
     }
@@ -298,7 +298,7 @@ app.post(
   ensureSessionData,
   async (req: Request, res: Response): Promise<void> => {
     const result = await balanceHandler.handler({
-      session: req.session as SessionData,
+      session: req.session as ExtendedSession,
       wallet: req.session.userId
         ? (await getWallet(req.session.userId)) || undefined
         : undefined,
@@ -324,13 +324,13 @@ app.post(
         | "week"
         | "month";
       result = await handleTimeframeChange({
-        session: req.session as SessionData,
+        session: req.session as ExtendedSession,
         wallet,
         args: timeframe,
       });
     } else {
       result = await historyHandler.handler({
-        session: req.session as SessionData,
+        session: req.session as ExtendedSession,
         wallet,
       });
     }
@@ -352,30 +352,30 @@ app.post(
     if (callback?.startsWith("token_")) {
       const tokenSymbol = callback.replace("token_", "");
       result = await handleTokenSelection({
-        session: req.session as SessionData,
+        session: req.session as ExtendedSession,
         wallet,
         args: tokenSymbol,
       });
     } else if (req.session.currentAction === "buy_custom_token") {
       result = await handleCustomTokenInput({
-        session: req.session as SessionData,
+        session: req.session as ExtendedSession,
         wallet,
         args,
       });
     } else if (req.session.currentAction === "buy_amount") {
       result = await handleBuyAmountInput({
-        session: req.session as SessionData,
+        session: req.session as ExtendedSession,
         wallet,
         args,
       });
     } else if (callback === "confirm_yes" || callback === "confirm_no") {
       result = await handleBuyConfirmation(
-        { session: req.session as SessionData, wallet },
+        { session: req.session as ExtendedSession, wallet },
         callback === "confirm_yes"
       );
     } else {
       result = await buyHandler.handler({
-        session: req.session as SessionData,
+        session: req.session as ExtendedSession,
         wallet,
       });
     }
@@ -397,30 +397,30 @@ app.post(
     if (callback?.startsWith("sell_token_")) {
       const tokenAddress = callback.replace("sell_token_", "");
       result = await handleSellTokenSelection({
-        session: req.session as SessionData,
+        session: req.session as ExtendedSession,
         wallet,
         args: tokenAddress,
       });
     } else if (req.session.currentAction === "sell_custom_token") {
       result = await handleSellCustomTokenInput({
-        session: req.session as SessionData,
+        session: req.session as ExtendedSession,
         wallet,
         args,
       });
     } else if (req.session.currentAction === "sell_amount") {
       result = await handleSellAmountInput({
-        session: req.session as SessionData,
+        session: req.session as ExtendedSession,
         wallet,
         args,
       });
     } else if (callback === "confirm_yes" || callback === "confirm_no") {
       result = await handleSellConfirmation(
-        { session: req.session as SessionData, wallet },
+        { session: req.session as ExtendedSession, wallet },
         callback === "confirm_yes"
       );
     } else {
       result = await sellHandler.handler({
-        session: req.session as SessionData,
+        session: req.session as ExtendedSession,
         wallet,
       });
     }
@@ -442,13 +442,13 @@ app.post(
         | "slippage"
         | "gasPriority";
       result = await handleSettingsOption(
-        { session: req.session as SessionData },
+        { session: req.session as ExtendedSession },
         option
       );
     } else if (callback?.startsWith("slippage_")) {
       const slippage = parseFloat(callback.replace("slippage_", ""));
       result = await updateSlippage(
-        { session: req.session as SessionData },
+        { session: req.session as ExtendedSession },
         slippage
       );
     } else if (callback?.startsWith("gas_")) {
@@ -457,7 +457,7 @@ app.post(
         | "medium"
         | "high";
       result = await updateGasPriority(
-        { session: req.session as SessionData },
+        { session: req.session as ExtendedSession },
         priority
       );
     } else if (callback === "back") {
@@ -478,7 +478,7 @@ app.post(
       };
     } else {
       result = await settingsHandler.handler({
-        session: req.session as SessionData,
+        session: req.session as ExtendedSession,
       });
     }
     res.json(result);
@@ -493,7 +493,7 @@ app.post(
   async (req: Request, res: Response): Promise<void> => {
     const result = await depositHandler.handler({
       // depositHandler might need wallet to display address
-      session: req.session as SessionData,
+      session: req.session as ExtendedSession,
       wallet: req.session.userId
         ? (await getWallet(req.session.userId)) || undefined
         : undefined,
@@ -515,24 +515,24 @@ app.post(
     let result;
     if (callback?.startsWith("withdraw_confirm_")) {
       result = await handleWithdrawConfirmation(
-        { session: req.session as SessionData, wallet },
+        { session: req.session as ExtendedSession, wallet },
         callback === "withdraw_confirm_true"
       );
     } else if (req.session.currentAction === "withdraw_amount") {
       result = await handleWithdrawAmount({
-        session: req.session as SessionData,
+        session: req.session as ExtendedSession,
         wallet,
         args,
       });
     } else if (req.session.currentAction === "withdraw_address") {
       result = await handleWithdrawAddress({
-        session: req.session as SessionData,
+        session: req.session as ExtendedSession,
         wallet,
         args,
       });
     } else {
       result = await withdrawHandler.handler({
-        session: req.session as SessionData,
+        session: req.session as ExtendedSession,
         wallet,
       });
     }
@@ -572,49 +572,49 @@ app.post(
     switch (req.session.currentAction) {
       case "import_wallet":
         result = await handlePrivateKeyInput({
-          session: req.session as SessionData,
+          session: req.session as ExtendedSession,
           wallet, // Though likely not used by this specific handler
           args,
         });
         break;
       case "buy_custom_token":
         result = await handleCustomTokenInput({
-          session: req.session as SessionData,
+          session: req.session as ExtendedSession,
           wallet,
           args,
         });
         break;
       case "buy_amount":
         result = await handleBuyAmountInput({
-          session: req.session as SessionData,
+          session: req.session as ExtendedSession,
           wallet,
           args,
         });
         break;
       case "sell_custom_token":
         result = await handleSellCustomTokenInput({
-          session: req.session as SessionData,
+          session: req.session as ExtendedSession,
           wallet,
           args,
         });
         break;
       case "sell_amount":
         result = await handleSellAmountInput({
-          session: req.session as SessionData,
+          session: req.session as ExtendedSession,
           wallet,
           args,
         });
         break;
       case "withdraw_address":
         result = await handleWithdrawAddress({
-          session: req.session as SessionData,
+          session: req.session as ExtendedSession,
           wallet,
           args,
         });
         break;
       case "withdraw_amount":
         result = await handleWithdrawAmount({
-          session: req.session as SessionData,
+          session: req.session as ExtendedSession,
           wallet,
           args,
         });
@@ -623,7 +623,7 @@ app.post(
         if (isValidAddress(args)) {
           req.session.currentAction = "buy_custom_token"; // Prompt for buy flow
           result = await handleCustomTokenInput({
-            session: req.session as SessionData,
+            session: req.session as ExtendedSession,
             wallet,
             args,
           });
@@ -673,12 +673,12 @@ app.post(
     switch (command) {
       case "/start":
         result = await startHandler.handler({
-          session: req.session as SessionData,
+          session: req.session as ExtendedSession,
         });
         break;
       case "/balance":
         result = await balanceHandler.handler({
-          session: req.session as SessionData,
+          session: req.session as ExtendedSession,
           wallet: req.session.userId
             ? (await getWallet(req.session.userId)) || undefined
             : undefined,
@@ -686,7 +686,7 @@ app.post(
         break;
       case "/buy":
         result = await buyHandler.handler({
-          session: req.session as SessionData,
+          session: req.session as ExtendedSession,
           wallet: req.session.userId
             ? (await getWallet(req.session.userId)) || undefined
             : undefined,
@@ -694,7 +694,7 @@ app.post(
         break;
       case "/sell":
         result = await sellHandler.handler({
-          session: req.session as SessionData,
+          session: req.session as ExtendedSession,
           wallet: req.session.userId
             ? (await getWallet(req.session.userId)) || undefined
             : undefined,
@@ -702,7 +702,7 @@ app.post(
         break;
       case "/deposit":
         result = await depositHandler.handler({
-          session: req.session as SessionData,
+          session: req.session as ExtendedSession,
           wallet: req.session.userId
             ? (await getWallet(req.session.userId)) || undefined
             : undefined,
@@ -710,7 +710,7 @@ app.post(
         break;
       case "/withdraw":
         result = await withdrawHandler.handler({
-          session: req.session as SessionData,
+          session: req.session as ExtendedSession,
           wallet: req.session.userId
             ? (await getWallet(req.session.userId)) || undefined
             : undefined,
@@ -718,12 +718,12 @@ app.post(
         break;
       case "/wallet":
         result = await walletHandler.handler({
-          session: req.session as SessionData,
+          session: req.session as ExtendedSession,
         });
         break;
       case "/settings":
         result = await settingsHandler.handler({
-          session: req.session as SessionData,
+          session: req.session as ExtendedSession,
         });
         break;
       case "/help":
@@ -731,12 +731,12 @@ app.post(
         break;
       case "/create":
         result = await createHandler.handler({
-          session: req.session as SessionData,
+          session: req.session as ExtendedSession,
         });
         break;
       case "/import":
         result = await importHandler.handler({
-          session: req.session as SessionData,
+          session: req.session as ExtendedSession,
           wallet: req.session.userId
             ? (await getWallet(req.session.userId)) || undefined
             : undefined,
@@ -744,7 +744,7 @@ app.post(
         break;
       case "/export":
         result = await exportHandler.handler({
-          session: req.session as SessionData,
+          session: req.session as ExtendedSession,
           wallet: req.session.userId
             ? (await getWallet(req.session.userId)) || undefined
             : undefined,
@@ -774,7 +774,7 @@ app.post(
   ensureSessionData,
   async (req: Request, res: Response): Promise<void> => {
     const { callback, args } = req.body;
-    const session = req.session as SessionData;
+    const session = req.session as ExtendedSession;
     const wallet = session.userId
       ? (await getWallet(session.userId)) || undefined
       : undefined;
@@ -789,18 +789,10 @@ app.post(
           console.warn("currentAction was undefined or incorrect, setting to import_wallet");
           session.currentAction = "import_wallet";
         }
-        result = await handlePrivateKeyInput({
-          session,
-          args,
-          wallet,
-        });
+        result = await handlePrivateKeyInput({ session, args, wallet });
       } else if (session.currentAction === "import_wallet" && args) {
         console.log("Processing private key input (legacy condition):", args);
-        result = await handlePrivateKeyInput({
-          session,
-          args,
-          wallet,
-        });
+        result = await handlePrivateKeyInput({ session, args, wallet });
       } else if (session.currentAction === "export_wallet") {
         if (callback === "confirm_yes" || callback === "confirm_no") {
           console.log(`Handling export confirmation: ${callback}`);
@@ -864,14 +856,22 @@ app.post(
       result = { response: "❌ An error occurred. Please try again later." };
     }
 
-    req.session.save((err) => {
-      if (err) console.error("Error saving session:", err);
+    await new Promise((resolve, reject) => {
+      session.save((err: Error | null) => {
+        if (err) {
+          console.error("index.ts: Error saving session for userId:", session.userId, err);
+          reject(err);
+        } else {
+          resolve(null);
+        }
+      });
     });
 
     res.json(result);
     return;
   }
 );
+
 // Start server
 const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, () => {
