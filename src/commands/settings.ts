@@ -133,27 +133,32 @@ export async function updateSlippage(
       return { response: "❌ Invalid slippage value. Please select 0.5%, 1.0%, or 2.0%." };
     }
 
-    const settings = session.settings || {
+    // Fetch latest settings from Supabase to preserve gasPriority
+    const currentSettings = (await getUserSettings(userId)) || {
       userId,
       slippage: 1.0,
       gasPriority: "medium",
     };
+    console.log("[Settings] Current settings before update:", currentSettings);
 
-    settings.slippage = value;
-    session.settings = settings;
+    const updatedSettings = {
+      ...currentSettings,
+      slippage: value,
+    };
+    session.settings = updatedSettings;
 
     await saveUserSettings(userId, {
-      slippage: settings.slippage,
-      gasPriority: settings.gasPriority,
+      slippage: updatedSettings.slippage,
+      gasPriority: updatedSettings.gasPriority,
     });
     await session.save();
-    console.log("[Settings] Slippage updated and saved for userId:", userId, settings);
+    console.log("[Settings] Slippage updated and saved for userId:", userId, updatedSettings);
 
     return {
       response: `⚙️ Your Settings\n\nSlippage set to ${value}%.\n\nSlippage Tolerance: ${
-        settings.slippage
+        updatedSettings.slippage
       }%\nGas Priority: ${getGasPriorityLabel(
-        settings.gasPriority
+        updatedSettings.gasPriority
       )}\n\nSelect an option to modify:`,
       buttons: [
         [
@@ -188,27 +193,32 @@ export async function updateGasPriority(
       return { response: "❌ Invalid gas priority. Please select Low, Medium, or High." };
     }
 
-    const settings = session.settings || {
+    // Fetch latest settings from Supabase to preserve slippage
+    const currentSettings = (await getUserSettings(userId)) || {
       userId,
       slippage: 1.0,
       gasPriority: "medium",
     };
+    console.log("[Settings] Current settings before update:", currentSettings);
 
-    settings.gasPriority = priority;
-    session.settings = settings;
+    const updatedSettings = {
+      ...currentSettings,
+      gasPriority: priority,
+    };
+    session.settings = updatedSettings;
 
     await saveUserSettings(userId, {
-      slippage: settings.slippage,
-      gasPriority: settings.gasPriority,
+      slippage: updatedSettings.slippage,
+      gasPriority: updatedSettings.gasPriority,
     });
     await session.save();
-    console.log("[Settings] Gas priority updated and saved for userId:", userId, settings);
+    console.log("[Settings] Gas priority updated and saved for userId:", userId, updatedSettings);
 
     return {
       response: `⚙️ Your Settings\n\nGas priority set to ${priority}.\n\nSlippage Tolerance: ${
-        settings.slippage
+        updatedSettings.slippage
       }%\nGas Priority: ${getGasPriorityLabel(
-        settings.gasPriority
+        updatedSettings.gasPriority
       )}\n\nSelect an option to modify:`,
       buttons: [
         [
