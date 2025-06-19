@@ -658,8 +658,6 @@ app.post(
   }
 );
 
-
-
 app.post(
   "/api/command",
   authenticateFarcaster,
@@ -746,6 +744,7 @@ app.post(
   }
 );
 
+// index.ts (/api/callback snippet)
 app.post(
   "/api/callback",
   authenticateFarcaster,
@@ -796,7 +795,12 @@ app.post(
         result = await handleTokenSelection({ session, args: callback });
       } else if (session.currentAction === "buy_custom_token" && args) {
         console.log("[Callback] Handling custom token input:", args, "for userId:", session.userId);
-        result = await handleCustomTokenInput({ session, args });
+        try {
+          result = await handleCustomTokenInput({ session, args });
+        } catch (error) {
+          console.error("[Callback] Error in handleCustomTokenInput for userId:", session.userId, "args:", args, error);
+          result = { response: "❌ Failed to process token address. Please check the address and try again." };
+        }
       } else if (session.currentAction === "buy_amount" && args) {
         console.log("[Callback] Handling buy amount input:", args, "for userId:", session.userId);
         result = await handleBuyAmountInput({ session, args });

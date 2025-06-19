@@ -74,7 +74,7 @@ export const buyHandler = {
         buttons,
       };
     } catch (error) {
-      console.error("Error in buy command:", error);
+      console.error("[Buy] Error in buy command for userId:", session?.userId, error);
       return { response: "❌ An error occurred. Please try again later." };
     }
   },
@@ -125,7 +125,7 @@ export async function handleTokenSelection(context: CommandContext): Promise<{
       ),
     };
   } catch (error) {
-    console.error("Error handling token selection:", error);
+    console.error("[Buy] Error handling token selection for userId:", session?.userId, error);
     return { response: "❌ An error occurred. Please try again." };
   }
 }
@@ -137,29 +137,39 @@ export async function handleCustomTokenInput(context: CommandContext): Promise<{
   const { session, args: input } = context;
   try {
     const userId = session.userId;
+    console.log("[Buy] handleCustomTokenInput: userId =", userId, "input =", input);
+
     if (!userId || !input) {
+      console.error("[Buy] Invalid request: userId =", userId, "input =", input);
       return { response: "❌ Invalid request. Please try again." };
     }
 
     if (!isValidAddress(input)) {
+      console.warn("[Buy] Invalid token address format:", input);
       return {
         response:
           "❌ Invalid token address format. Please provide a valid Ethereum address.\n\nTry again or type /cancel to abort.",
       };
     }
 
+    console.log("[Buy] Fetching token info for address:", input);
     const tokenInfo = await getTokenInfo(input as Address);
     if (!tokenInfo) {
+      console.error("[Buy] Unable to get token information for address:", input);
       return {
         response:
           "❌ Unable to get information for this token. It might not be a valid ERC-20 token on Base Network.\n\nPlease check the address and try again or type /cancel to abort.",
       };
     }
 
+    console.log("[Buy] Token info retrieved:", tokenInfo);
     session.tempData!.toToken = tokenInfo.address;
     session.tempData!.toSymbol = tokenInfo.symbol;
     session.tempData!.toDecimals = tokenInfo.decimals;
     session.currentAction = "buy_amount";
+
+    await session.save();
+    console.log("[Buy] Session updated for userId:", userId, "tempData =", session.tempData);
 
     return {
       response: `💱 Buy ${tokenInfo.symbol}\n\nYou are buying ${
@@ -172,8 +182,8 @@ export async function handleCustomTokenInput(context: CommandContext): Promise<{
       ),
     };
   } catch (error) {
-    console.error("Error handling custom token input:", error);
-    return { response: "❌ An error occurred. Please try again later." };
+    console.error("[Buy] Error handling custom token input for userId:", session?.userId, "input =", input, error);
+    return { response: "❌ An error occurred while processing the token address. Please try again later." };
   }
 }
 
@@ -260,7 +270,7 @@ export async function handleBuyAmountInput(context: CommandContext): Promise<{
       buttons,
     };
   } catch (error) {
-    console.error("Error handling buy amount input:", error);
+    console.error("[Buy] Error handling buy amount input for userId:", session?.userId, error);
     return { response: "❌ An error occurred. Please try again later." };
   }
 }
@@ -357,7 +367,7 @@ export async function handleBuyConfirmation(
       };
     }
   } catch (error) {
-    console.error("Error processing buy confirmation:", error);
+    console.error("[Buy] Error processing buy confirmation for userId:", session?.userId, error);
     session.currentAction = undefined;
     session.tempData = {};
     return {
