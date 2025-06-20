@@ -768,10 +768,29 @@ app.post(
       : undefined;
     let result;
 
-    console.log(`[Callback] Received: callback=${callback}, args=${JSON.stringify(args)}, currentAction=${session.currentAction}, userId=${session.userId}, walletAddress=${session.walletAddress}, sessionId=${req.sessionID}, wallet=${wallet ? 'exists' : 'undefined'}`);
+    console.log(`[Callback] Received: callback=${callback}, args=${JSON.stringify(args)}, currentAction=${session.currentAction}, userId=${session.userId}, walletAddress=${session.walletAddress}, sessionId=${req.sessionID}, wallet=${wallet ? 'exists' : 'undefined'}, tempData=${JSON.stringify(session.tempData)}`);
 
     try {
-      if (callback === null && args && isValidAddress(args)) {
+      // Early validation for session state
+      if (!session.userId) {
+        console.error("[Callback] No userId in session, fid:", req.body.fid);
+        result = { response: "❌ Session expired. Please restart with /start." };
+      } else if (session.currentAction === "buy_amount" && args) {
+        console.log("[Callback] Handling buy amount input:", args, "for userId:", session.userId);
+        if (!session.tempData || !session.tempData.toToken || !session.tempData.walletAddress) {
+          console.warn("[Callback] Invalid session.tempData for buy_amount, userId:", session.userId, "tempData:", session.tempData);
+          session.currentAction = undefined;
+          await session.save();
+          result = { response: "❌ Invalid session state. Please restart with /buy." };
+        } else {
+          result = await handleBuyAmountInput({ session, args, wallet });
+        }
+      } else if (session.currentAction === "buy_confirm" && (callback === "confirm_yes" || callback === "confirm_no")) {
+        console.log("[Callback] Handling buy confirmation:", callback, "for userId:", session.userId);
+        result = await handleBuyConfirmation({ session, wallet }, callback === "confirm_yes");
+        session.currentAction = undefined;
+        await session.save();
+      } else if (callback === null && args && isValidAddress(args)) {
         console.warn("[Callback] Unexpected null callback with address args:", args, "currentAction:", session.currentAction);
         if (session.currentAction === "buy_custom_token") {
           console.log("[Callback] Handling custom token input:", args, "for userId:", session.userId);
@@ -783,14 +802,6 @@ app.post(
           console.log("[Callback] Session saved: userId =", session.userId, "currentAction =", session.currentAction);
           result = await handleCustomTokenInput({ session, args, wallet });
         }
-      } else if (session.currentAction === "buy_amount" && args) {
-        console.log("[Callback] Handling buy amount input:", args, "for userId:", session.userId);
-        result = await handleBuyAmountInput({ session, args, wallet });
-      } else if (session.currentAction === "buy_confirm" && (callback === "confirm_yes" || callback === "confirm_no")) {
-        console.log("[Callback] Handling buy confirmation:", callback, "for userId:", session.userId);
-        result = await handleBuyConfirmation({ session, wallet }, callback === "confirm_yes");
-        session.currentAction = undefined;
-        await session.save();
       } else if (session.currentAction === "export_wallet" && (callback === "confirm_yes" || callback === "Confirm" || callback === "confirm_no")) {
         console.log(`[Callback] Handling export confirmation: ${callback}, userId=${session.userId}`);
         result = await handleExportConfirmation(
