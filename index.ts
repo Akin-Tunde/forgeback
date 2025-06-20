@@ -56,6 +56,7 @@ import {
   handleWithdrawConfirmation,
 } from "./src/commands/withdraw";
 import { isValidAddress } from "./src/utils/validators";
+import { NATIVE_TOKEN_ADDRESS } from "./src/utils/constants";
 
 // Extend express-session to include SessionData
 declare module "express-session" {
@@ -619,7 +620,11 @@ app.post(
       : undefined;
     let result;
     console.log(
-      `[Input] Session: userId=${session.userId}, currentAction=${session.currentAction}, args=${args}, sessionId=${req.sessionID}`
+      `[Input] Session: userId=${session.userId}, currentAction=${
+        session.currentAction
+      }, args=${args}, sessionId=${req.sessionID}, tempData=${JSON.stringify(
+        session.tempData
+      )}`
     );
 
     if (!session.userId) {
@@ -631,39 +636,38 @@ app.post(
 
     switch (session.currentAction) {
       case "import_wallet":
-        result = await handlePrivateKeyInput({
-          session,
-          wallet,
-          args,
-        });
+        result = await handlePrivateKeyInput({ session, wallet, args });
         break;
       case "buy_custom_token":
-        result = await handleCustomTokenInput({
-          session,
-          wallet,
-          args,
-        });
+        result = await handleCustomTokenInput({ session, wallet, args });
         break;
       case "buy_amount":
-        result = await handleBuyAmountInput({
-          session,
-          wallet,
-          args,
-        });
+        if (
+          !session.tempData?.toToken ||
+          !session.tempData?.walletAddress ||
+          !session.tempData?.balance
+        ) {
+          console.warn(
+            "[Input] Invalid tempData for buy_amount, userId:",
+            session.userId,
+            "tempData:",
+            session.tempData
+          );
+          session.currentAction = undefined;
+          session.tempData = {};
+          await session.save();
+          result = {
+            response: "❌ Invalid session state. Please restart with /buy.",
+          };
+        } else {
+          result = await handleBuyAmountInput({ session, wallet, args });
+        }
         break;
       case "sell_custom_token":
-        result = await handleSellCustomTokenInput({
-          session,
-          wallet,
-          args,
-        });
+        result = await handleSellCustomTokenInput({ session, wallet, args });
         break;
       case "sell_amount":
-        result = await handleSellAmountInput({
-          session,
-          wallet,
-          args,
-        });
+        result = await handleSellAmountInput({ session, wallet, args });
         break;
       case "withdraw_address":
         if (!args || !isValidAddress(args)) {
@@ -672,44 +676,73 @@ app.post(
               "❌ Invalid address. Please provide a valid Ethereum address.",
           };
         } else {
-          result = await handleWithdrawAddress({
-            session,
-            wallet,
-            args,
-          });
+          result = await handleWithdrawAddress({ session, wallet, args });
         }
         break;
       case "withdraw_amount":
-        result = await handleWithdrawAmount({
-          session,
-          wallet,
-          args,
-        });
+        result = await handleWithdrawAmount({ session, wallet, args });
         break;
       default:
-        console.warn("[Input] No valid currentAction, args:", args);
-        result = {
-          response:
-            "❌ Invalid action. Please use a command to start a new action:\n\n" +
-            "/wallet - View your wallet\n" +
-            "/balance - Check your balances\n" +
-            "/buy - Buy tokens with ETH\n" +
-            "/sell - Sell tokens for ETH\n" +
-            "/deposit - Get your deposit address\n" +
-            "/withdraw - Withdraw ETH to another address\n" +
-            "/settings - Change trading settings\n" +
-            "/help - Show this help message",
-          buttons: [
-            [
-              { label: "💰 Balance", callback: "check_balance" },
-              { label: "💱 Buy/Sell", callback: "buy_token" },
+        if (isValidAddress(args)) {
+          console.log(
+            "[Input] Direct token address input detected, initiating buy flow:",
+            args
+          );
+          session.currentAction = "buy_custom_token";
+          session.tempData = {
+            ...session.tempData,
+            fromToken: NATIVE_TOKEN_ADDRESS,
+            fromSymbol: "ETH",
+            fromDecimals: 18,
+            walletAddress: wallet?.address,
+          };
+          await session.save();
+          result = await handleCustomTokenInput({ session, wallet, args });
+        } else if (args && !isNaN(parseFloat(args)) && parseFloat(args) > 0) {
+          console.warn(
+            "[Input] Numeric input with no valid currentAction:",
+            args
+          );
+          if (
+            session.tempData?.toToken &&
+            session.tempData?.walletAddress &&
+            session.tempData?.balance
+          ) {
+            console.log("[Input] Retrying buy_amount with args:", args);
+            session.currentAction = "buy_amount";
+            await session.save();
+            result = await handleBuyAmountInput({ session, wallet, args });
+          } else {
+            result = {
+              response:
+                "❌ Invalid session state for amount input. Please restart with /buy or paste a token address.",
+            };
+          }
+        } else {
+          console.warn("[Input] Unknown input:", args);
+          result = {
+            response:
+              "❌ Invalid action. Please use a command to start a new action or paste a token address to buy:\n\n" +
+              "/wallet - View your wallet\n" +
+              "/balance - Check your balances\n" +
+              "/buy - Buy tokens with ETH\n" +
+              "/sell - Sell tokens for ETH\n" +
+              "/deposit - Get your deposit address\n" +
+              "/withdraw - Withdraw ETH to another address\n" +
+              "/settings - Change trading settings\n" +
+              "/help - Show this help message",
+            buttons: [
+              [
+                { label: "💰 Balance", callback: "check_balance" },
+                { label: "💱 Buy/Sell", callback: "buy_token" },
+              ],
+              [
+                { label: "📥 Deposit", callback: "deposit" },
+                { label: "📤 Withdraw", callback: "withdraw" },
+              ],
             ],
-            [
-              { label: "📥 Deposit", callback: "deposit" },
-              { label: "📤 Withdraw", callback: "withdraw" },
-            ],
-          ],
-        };
+          };
+        }
     }
     await session.save();
     res.json(result);

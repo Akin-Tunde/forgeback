@@ -64,6 +64,7 @@ export interface SwapResponse {
 }
 
 export interface TokenInfo {
+  name: any;
   address: Address;
   symbol: string;
   decimals: number;
@@ -95,7 +96,6 @@ export interface BalanceHistoryEntry {
   };
 }
 
-
 export interface TokenBalanceResult {
   address: string;
   balance: string; // Native token balance
@@ -118,8 +118,6 @@ export interface OpenOceanErrorResponse {
   message?: string;
 }
 
-
-
 export interface JsonRpcResponse<T> {
   data?: T;
   result?: T;
@@ -130,4 +128,3 @@ export interface JsonRpcResponse<T> {
   id: number;
   jsonrpc: string;
 }
-
