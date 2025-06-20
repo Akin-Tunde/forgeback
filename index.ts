@@ -775,11 +775,12 @@ app.post(
       if (!session.userId) {
         console.error("[Callback] No userId in session, fid:", req.body.fid);
         result = { response: "❌ Session expired. Please restart with /start." };
-      } else if (session.currentAction === "buy_amount" && args) {
+      } else if (session.currentAction === "buy_amount" && args && !callback) {
         console.log("[Callback] Handling buy amount input:", args, "for userId:", session.userId);
-        if (!session.tempData || !session.tempData.toToken || !session.tempData.walletAddress) {
+        if (!session.tempData || !session.tempData.toToken || !session.tempData.walletAddress || !session.tempData.balance) {
           console.warn("[Callback] Invalid session.tempData for buy_amount, userId:", session.userId, "tempData:", session.tempData);
           session.currentAction = undefined;
+          session.tempData = {};
           await session.save();
           result = { response: "❌ Invalid session state. Please restart with /buy." };
         } else {

@@ -194,17 +194,36 @@ export async function handleBuyAmountInput(context: CommandContext): Promise<{
   response: string;
   buttons?: { label: string; callback: string }[][];
 }> {
-  const { session, args: input } = context;
+  const { session, args: input, wallet } = context;
   try {
     const userId = session.userId;
     if (!userId || !input) {
+      console.error("[Buy] Invalid request: userId =", userId, "input =", input);
       return { response: "❌ Invalid request. Please try again." };
     }
 
+    // Validate session state
+    if (!session.tempData || !session.tempData.toToken || !session.tempData.toSymbol || !session.tempData.toDecimals || !session.tempData.walletAddress || !session.tempData.balance) {
+      console.warn("[Buy] Invalid session.tempData for buy_amount, userId:", userId, "tempData:", session.tempData);
+      session.currentAction = undefined;
+      session.tempData = {};
+      await session.save();
+      return { response: "❌ Invalid session state. Please restart with /buy." };
+    }
+
+    if (!wallet) {
+      console.warn("[Buy] Wallet not found, userId:", userId);
+      session.currentAction = undefined;
+      session.tempData = {};
+      await session.save();
+      return { response: "❌ Wallet not found. Please restart with /buy." };
+    }
+
     if (!isValidAmount(input)) {
+      console.warn("[Buy] Invalid amount format:", input);
       return {
         response:
-          "❌ Invalid amount format. Please enter a positive number.\n\nTry again or type /cancel to abort.",
+          "❌ Invalid amount format. Please enter a positive number (e.g., 0.1).\n\nTry again or type /cancel to abort.",
       };
     }
 
@@ -216,6 +235,7 @@ export async function handleBuyAmountInput(context: CommandContext): Promise<{
     const amount = parseFloat(amountInput);
     const balance = session.tempData!.balance;
     if (amount > parseFloat(formatEthBalance(balance))) {
+      console.warn("[Buy] Insufficient balance: amount =", amount, "balance =", balance);
       return {
         response: `❌ Insufficient balance. You only have ${formatEthBalance(
           balance
@@ -243,6 +263,11 @@ export async function handleBuyAmountInput(context: CommandContext): Promise<{
       session.tempData!.gasPrice
     );
 
+    if (!quote || !quote.data) {
+      console.error("[Buy] Failed to fetch quote, userId:", userId);
+      return { response: "❌ Failed to fetch swap quote. Please try again." };
+    }
+
     session.tempData!.toAmount = quote.data.outAmount;
     session.tempData!.estimatedGas = quote.data.estimatedGas;
 
@@ -253,7 +278,7 @@ export async function handleBuyAmountInput(context: CommandContext): Promise<{
     );
 
     session.currentAction = "buy_confirm";
-    console.log("[Buy] Saving session: userId =", userId, "currentAction =", session.currentAction);
+    console.log("[Buy] Saving session: userId =", userId, "currentAction =", session.currentAction, "tempData =", session.tempData);
     await session.save();
     console.log("[Buy] Session saved: userId =", userId, "currentAction =", session.currentAction);
 
@@ -272,11 +297,14 @@ export async function handleBuyAmountInput(context: CommandContext): Promise<{
         toAmount,
         selectedGasPriority,
         selectedSlippage
-      ).replace(/`/g, ""),
+      ),
       buttons,
     };
   } catch (error) {
-    console.error("[Buy] Error handling buy amount input for userId:", session?.userId, error);
+    console.error("[Buy] Error handling buy amount input for userId:", session?.userId, "input =", input, error);
+    session.currentAction = undefined;
+    session.tempData = {};
+    await session.save();
     return { response: "❌ An error occurred. Please try again later." };
   }
 }
