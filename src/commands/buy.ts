@@ -1,4 +1,3 @@
-// src/commands/buy.ts
 import { CommandContext } from "../types/commands";
 import {
   getTokenInfo,
@@ -38,7 +37,14 @@ export const buyHandler = {
       }
 
       const balance = await getEthBalance(wallet.address as `0x${string}`);
-      console.log("[Buy] ETH balance for userId:", userId, "address:", wallet.address, "balance:", balance);
+      console.log(
+        "[Buy] ETH balance for userId:",
+        userId,
+        "address:",
+        wallet.address,
+        "balance:",
+        balance
+      );
       if (BigInt(balance) <= BigInt(0)) {
         return {
           response:
@@ -54,9 +60,21 @@ export const buyHandler = {
         walletAddress: wallet.address,
         balance,
       };
-      console.log("[Buy] Saving session: userId =", userId, "currentAction =", session.currentAction);
+      console.log(
+        "[Buy] Saving session: userId =",
+        userId,
+        "currentAction =",
+        session.currentAction,
+        "tempData =",
+        JSON.stringify(session.tempData)
+      );
       await session.save();
-      console.log("[Buy] Session saved: userId =", userId, "currentAction =", session.currentAction);
+      console.log(
+        "[Buy] Session saved: userId =",
+        userId,
+        "currentAction =",
+        session.currentAction
+      );
 
       const buttons = [
         [
@@ -74,7 +92,11 @@ export const buyHandler = {
         buttons,
       };
     } catch (error) {
-      console.error("[Buy] Error in buy command for userId:", session?.userId, error);
+      console.error(
+        "[Buy] Error in buy command for userId:",
+        session?.userId,
+        error
+      );
       return { response: "❌ An error occurred. Please try again later." };
     }
   },
@@ -84,47 +106,127 @@ export async function handleTokenSelection(context: CommandContext): Promise<{
   response: string;
   buttons?: { label: string; callback: string }[][];
 }> {
-  const { session, args: tokenSymbol } = context;
+  const { session, args: tokenSymbol, wallet } = context;
   try {
+    const userId = session.userId;
+    if (!userId || !tokenSymbol) {
+      console.error(
+        "[Buy] Invalid request: userId =",
+        userId,
+        "tokenSymbol =",
+        tokenSymbol
+      );
+      return { response: "❌ Invalid request. Please try again." };
+    }
+
+    if (!wallet) {
+      console.warn("[Buy] Wallet not found, userId:", userId);
+      session.currentAction = undefined;
+      session.tempData = {};
+      await session.save();
+      return {
+        response:
+          "❌ Wallet not found. Please create or import a wallet and restart with /buy.",
+      };
+    }
+
     if (tokenSymbol === "custom") {
       session.currentAction = "buy_custom_token";
-      console.log("[Buy] Saving session: userId =", session.userId, "currentAction =", session.currentAction);
+      session.tempData = {
+        ...session.tempData,
+        walletAddress: wallet.address,
+        balance:
+          session.tempData?.balance ||
+          (await getEthBalance(wallet.address as `0x${string}`)),
+      };
+      console.log(
+        "[Buy] Saving session: userId =",
+        userId,
+        "currentAction =",
+        session.currentAction,
+        "tempData =",
+        JSON.stringify(session.tempData)
+      );
       await session.save();
-      console.log("[Buy] Session saved: userId =", session.userId, "currentAction =", session.currentAction);
+      console.log(
+        "[Buy] Session saved: userId =",
+        userId,
+        "currentAction =",
+        session.currentAction
+      );
       return {
         response: `💱 Buy Custom Token\n\nPlease send the ERC-20 token address you want to buy.\n\nThe address should look like: 0x1234...5678\n\nYou can cancel this operation by typing /cancel`,
       };
     }
 
-    const tokenAddress = getTokenAddressFromSymbol(tokenSymbol!);
+    const tokenAddress = getTokenAddressFromSymbol(tokenSymbol);
     if (!tokenAddress) {
+      console.warn("[Buy] Token symbol not recognized:", tokenSymbol);
       return { response: "❌ Token symbol not recognized." };
     }
 
+    console.log("[Buy] Fetching token info for address:", tokenAddress);
     const tokenInfo = await getTokenInfo(tokenAddress);
     if (!tokenInfo) {
+      console.error(
+        "[Buy] Unable to get token information for address:",
+        tokenAddress
+      );
       return {
         response: "❌ Unable to get token information. Please try again.",
       };
     }
 
-    session.tempData!.toToken = tokenInfo.address;
-    session.tempData!.toSymbol = tokenInfo.symbol;
-    session.tempData!.toDecimals = tokenInfo.decimals;
+    const balance =
+      session.tempData?.balance ||
+      (await getEthBalance(wallet.address as `0x${string}`));
+    console.log(
+      "[Buy] ETH balance for userId:",
+      userId,
+      "address:",
+      wallet.address,
+      "balance:",
+      balance
+    );
+    session.tempData = {
+      ...session.tempData,
+      toToken: tokenInfo.address,
+      toSymbol: tokenInfo.symbol,
+      toDecimals: tokenInfo.decimals,
+      walletAddress: wallet.address,
+      balance,
+    };
     session.currentAction = "buy_amount";
-    console.log("[Buy] Saving session: userId =", session.userId, "currentAction =", session.currentAction);
+    console.log(
+      "[Buy] Saving session: userId =",
+      userId,
+      "currentAction =",
+      session.currentAction,
+      "tempData =",
+      JSON.stringify(session.tempData)
+    );
     await session.save();
-    console.log("[Buy] Session saved: userId =", session.userId, "currentAction =", session.currentAction);
+    console.log(
+      "[Buy] Session saved: userId =",
+      userId,
+      "currentAction =",
+      session.currentAction
+    );
 
-    const formattedBalance = formatEthBalance(session.tempData!.balance);
+    const formattedBalance = formatEthBalance(balance);
     console.log("[Buy] Formatted balance for display:", formattedBalance);
     return {
-      response: `💱 Buy ${tokenInfo.symbol}\n\nYou are buying ${
-        tokenInfo.symbol
-      } with ETH.\n\nYour ETH balance: ${formattedBalance} ETH\n\nPlease enter the amount of ETH you want to spend:`,
+      response: `💱 Buy ${tokenInfo.symbol}\n\nYou are buying ${tokenInfo.symbol} with ETH.\n\nYour ETH balance: ${formattedBalance} ETH\n\nPlease enter the amount of ETH you want to spend:`,
     };
   } catch (error) {
-    console.error("[Buy] Error handling token selection for userId:", session?.userId, error);
+    console.error(
+      "[Buy] Error handling token selection for userId:",
+      session?.userId,
+      error
+    );
+    session.currentAction = undefined;
+    session.tempData = {};
+    await session.save();
     return { response: "❌ An error occurred. Please try again." };
   }
 }
@@ -136,10 +238,24 @@ export async function handleCustomTokenInput(context: CommandContext): Promise<{
   const { session, args: input, wallet } = context;
   try {
     const userId = session.userId;
-    console.log("[Buy] handleCustomTokenInput: userId =", userId, "input =", input, "currentAction =", session.currentAction, "tempData =", JSON.stringify(session.tempData));
+    console.log(
+      "[Buy] handleCustomTokenInput: userId =",
+      userId,
+      "input =",
+      input,
+      "currentAction =",
+      session.currentAction,
+      "tempData =",
+      JSON.stringify(session.tempData)
+    );
 
     if (!userId || !input) {
-      console.error("[Buy] Invalid request: userId =", userId, "input =", input);
+      console.error(
+        "[Buy] Invalid request: userId =",
+        userId,
+        "input =",
+        input
+      );
       return { response: "❌ Invalid request. Please try again." };
     }
 
@@ -148,7 +264,10 @@ export async function handleCustomTokenInput(context: CommandContext): Promise<{
       session.currentAction = undefined;
       session.tempData = {};
       await session.save();
-      return { response: "❌ Wallet not found. Please create or import a wallet and restart with /buy." };
+      return {
+        response:
+          "❌ Wallet not found. Please create or import a wallet and restart with /buy.",
+      };
     }
 
     if (!isValidAddress(input)) {
@@ -162,52 +281,85 @@ export async function handleCustomTokenInput(context: CommandContext): Promise<{
     console.log("[Buy] Fetching token info for address:", input);
     const tokenInfo = await getTokenInfo(input as Address);
     if (!tokenInfo) {
-      console.error("[Buy] Unable to get token information for address:", input);
+      console.error(
+        "[Buy] Unable to get token information for address:",
+        input
+      );
       return {
         response:
           "❌ Unable to get information for this token. It might not be a valid ERC-20 token on Base Network.\n\nPlease check the address and try again or type /cancel to abort.",
       };
     }
 
-    // Ensure tempData is initialized
-    session.tempData = session.tempData || {};
-    session.tempData.walletAddress = wallet.address;
-
-    // Fetch ETH balance
     console.log("[Buy] Fetching ETH balance for address:", wallet.address);
     const ethBalance = await getEthBalance(wallet.address as `0x${string}`);
-    console.log("[Buy] ETH balance for userId:", userId, "address:", wallet.address, "balance:", ethBalance);
+    console.log(
+      "[Buy] ETH balance for userId:",
+      userId,
+      "address:",
+      wallet.address,
+      "balance:",
+      ethBalance
+    );
     if (BigInt(ethBalance) <= BigInt(0)) {
-      console.warn("[Buy] Zero ETH balance for userId:", userId, "address:", wallet.address);
+      console.warn(
+        "[Buy] Zero ETH balance for userId:",
+        userId,
+        "address:",
+        wallet.address
+      );
       return {
         response:
           "❌ Your wallet has no ETH balance to buy tokens.\n\nUse /deposit to get your deposit address and add ETH first.",
       };
     }
-    session.tempData.balance = ethBalance;
-    session.tempData.fromToken = NATIVE_TOKEN_ADDRESS;
-    session.tempData.fromSymbol = "ETH";
-    session.tempData.fromDecimals = 18;
 
-    console.log("[Buy] Token info retrieved:", tokenInfo);
-    session.tempData.toToken = tokenInfo.address;
-    session.tempData.toSymbol = tokenInfo.symbol;
-    session.tempData.toDecimals = tokenInfo.decimals;
+    session.tempData = {
+      fromToken: NATIVE_TOKEN_ADDRESS,
+      fromSymbol: "ETH",
+      fromDecimals: 18,
+      toToken: tokenInfo.address,
+      toSymbol: tokenInfo.symbol,
+      toDecimals: tokenInfo.decimals,
+      walletAddress: wallet.address,
+      balance: ethBalance,
+    };
     session.currentAction = "buy_amount";
-    console.log("[Buy] Saving session: userId =", userId, "currentAction =", session.currentAction, "tempData =", JSON.stringify(session.tempData));
+    console.log(
+      "[Buy] Saving session: userId =",
+      userId,
+      "currentAction =",
+      session.currentAction,
+      "tempData =",
+      JSON.stringify(session.tempData)
+    );
     await session.save();
-    console.log("[Buy] Session updated for userId:", userId, "tempData =", JSON.stringify(session.tempData));
+    console.log(
+      "[Buy] Session updated for userId:",
+      userId,
+      "tempData =",
+      JSON.stringify(session.tempData)
+    );
 
     const formattedBalance = formatEthBalance(ethBalance);
     return {
-      response: `💱 Buy ${tokenInfo.symbol}\n\nYou are buying ${tokenInfo.symbol} with ETH.\n\nYour ETH balance: ${formattedBalance} ETH\n\nPlease enter the amount of ETH you want to spend:`,
+      response: `💱 Buy ${tokenInfo.name}\n\nYou are buying ${tokenInfo.name} with ETH.\n\nYour ETH balance: ${formattedBalance} ETH\n\nPlease enter the amount of ETH you want to spend:`,
     };
   } catch (error) {
-    console.error("[Buy] Error handling custom token input for userId:", session?.userId, "input =", input, error);
+    console.error(
+      "[Buy] Error handling custom token input for userId:",
+      session?.userId,
+      "input =",
+      input,
+      error
+    );
     session.currentAction = undefined;
     session.tempData = {};
     await session.save();
-    return { response: "❌ Failed to process token address. Please check the address and try again." };
+    return {
+      response:
+        "❌ Failed to process token address. Please check the address and try again.",
+    };
   }
 }
 
@@ -218,29 +370,58 @@ export async function handleBuyAmountInput(context: CommandContext): Promise<{
   const { session, args: input, wallet } = context;
   try {
     const userId = session.userId;
-    console.log("[Buy] handleBuyAmountInput: userId =", userId, "input =", input, "currentAction =", session.currentAction, "tempData =", JSON.stringify(session.tempData));
+    console.log(
+      "[Buy] handleBuyAmountInput: userId =",
+      userId,
+      "input =",
+      input,
+      "currentAction =",
+      session.currentAction,
+      "tempData =",
+      JSON.stringify(session.tempData)
+    );
 
     if (!userId || !input) {
-      console.error("[Buy] Invalid request: userId =", userId, "input =", input);
+      console.error(
+        "[Buy] Invalid request: userId =",
+        userId,
+        "input =",
+        input
+      );
       return { response: "❌ Invalid request. Please try again." };
     }
 
-    // Validate session state
-    if (!session.tempData || !session.tempData.toToken || !session.tempData.toSymbol || !session.tempData.toDecimals || !session.tempData.walletAddress || !session.tempData.balance) {
-      console.warn("[Buy] Invalid session.tempData for buy_amount, userId:", userId, "tempData:", session.tempData);
-      session.currentAction = undefined;
-      session.tempData = {};
-      await session.save();
-      return { response: "❌ Invalid session state. Please restart with /buy." };
-    }
-
-    // Validate wallet
     if (!wallet) {
       console.warn("[Buy] Wallet not found, userId:", userId);
       session.currentAction = undefined;
       session.tempData = {};
       await session.save();
-      return { response: "❌ Wallet not found. Please create or import a wallet and restart with /buy." };
+      return {
+        response:
+          "❌ Wallet not found. Please create or import a wallet and restart with /buy.",
+      };
+    }
+
+    if (
+      !session.tempData ||
+      !session.tempData.toToken ||
+      !session.tempData.toSymbol ||
+      !session.tempData.toDecimals ||
+      !session.tempData.walletAddress ||
+      !session.tempData.balance
+    ) {
+      console.warn(
+        "[Buy] Invalid session.tempData for buy_amount, userId:",
+        userId,
+        "tempData:",
+        session.tempData
+      );
+      session.currentAction = undefined;
+      session.tempData = {};
+      await session.save();
+      return {
+        response: "❌ Invalid session state. Please restart with /buy.",
+      };
     }
 
     if (!isValidAmount(input)) {
@@ -251,15 +432,20 @@ export async function handleBuyAmountInput(context: CommandContext): Promise<{
       };
     }
 
-    let amountInput = input!;
+    let amountInput = input;
     if (amountInput.startsWith(".")) {
       amountInput = "0" + amountInput;
     }
 
     const amount = parseFloat(amountInput);
-    const balance = session.tempData!.balance;
+    const balance = session.tempData.balance;
     if (amount > parseFloat(formatEthBalance(balance))) {
-      console.warn("[Buy] Insufficient balance: amount =", amount, "balance =", balance);
+      console.warn(
+        "[Buy] Insufficient balance: amount =",
+        amount,
+        "balance =",
+        balance
+      );
       return {
         response: `❌ Insufficient balance. You only have ${formatEthBalance(
           balance
@@ -268,64 +454,92 @@ export async function handleBuyAmountInput(context: CommandContext): Promise<{
     }
 
     const amountWei = parseEther(amountInput).toString();
-    session.tempData!.fromAmount = amountWei;
+    session.tempData.fromAmount = amountWei;
 
     const gasParams = await getGasParams(
       session.settings?.gasPriority || "medium"
     );
-    session.tempData!.gasPrice = gasParams.price;
-    session.tempData!.maxFeePerGas = gasParams.maxFeePerGas;
-    session.tempData!.maxPriorityFeePerGas = gasParams.maxPriorityFeePerGas;
+    session.tempData.gasPrice = gasParams.price;
+    session.tempData.maxFeePerGas = gasParams.maxFeePerGas;
+    session.tempData.maxPriorityFeePerGas = gasParams.maxPriorityFeePerGas;
 
     const selectedSlippage = session.settings?.slippage.toString() || "1.0";
     const selectedGasPriority = session.settings?.gasPriority || "medium";
 
-    const quote = await getQuote(
-      session.tempData!.fromToken,
-      session.tempData!.toToken,
+    console.log(
+      "[Buy] Fetching quote for amount:",
       amountInput,
-      session.tempData!.gasPrice
+      "fromToken:",
+      session.tempData.fromToken,
+      "toToken:",
+      session.tempData.toToken
+    );
+    const quote = await getQuote(
+      session.tempData.fromToken,
+      session.tempData.toToken,
+      amountInput,
+      session.tempData.gasPrice
     );
 
     if (!quote || !quote.data) {
-      console.error("[Buy] Failed to fetch quote, userId:", userId, "amountInput:", amountInput);
+      console.error(
+        "[Buy] Failed to fetch quote, userId:",
+        userId,
+        "amountInput:",
+        amountInput
+      );
       return { response: "❌ Failed to fetch swap quote. Please try again." };
     }
 
-    session.tempData!.toAmount = quote.data.outAmount;
-    session.tempData!.estimatedGas = quote.data.estimatedGas;
+    session.tempData.toAmount = quote.data.outAmount;
+    session.tempData.estimatedGas = quote.data.estimatedGas;
+    session.currentAction = "buy_confirm";
+    console.log(
+      "[Buy] Saving session: userId =",
+      userId,
+      "currentAction =",
+      session.currentAction,
+      "tempData =",
+      JSON.stringify(session.tempData)
+    );
+    await session.save();
+    console.log(
+      "[Buy] Session saved: userId =",
+      userId,
+      "currentAction =",
+      session.currentAction
+    );
 
     const fromAmount = formatEthBalance(amountWei);
     const toAmount = formatUnits(
       BigInt(quote.data.outAmount),
-      session.tempData!.toDecimals
+      session.tempData.toDecimals
     );
-
-    session.currentAction = "buy_confirm";
-    console.log("[Buy] Saving session: userId =", userId, "currentAction =", session.currentAction, "tempData =", JSON.stringify(session.tempData));
-    await session.save();
-    console.log("[Buy] Session saved: userId =", userId, "currentAction =", session.currentAction);
-
-    const buttons = [
-      [
-        { label: "✅ Confirm", callback: "confirm_yes" },
-        { label: "❌ Cancel", callback: "confirm_no" },
-      ],
-    ];
 
     return {
       response: formatTransactionDetails(
-        session.tempData!.fromSymbol,
-        session.tempData!.toSymbol,
+        session.tempData.fromSymbol,
+        session.tempData.toSymbol,
         fromAmount,
         toAmount,
         selectedGasPriority,
         selectedSlippage
       ),
-      buttons,
+      buttons: [
+        [
+          { label: "✅ Confirm", callback: "confirm_yes" },
+          { label: "❌ Cancel", callback: "confirm_no" },
+        ],
+      ],
     };
   } catch (error) {
-    console.error("[Buy] Error handling buy amount input for userId:", session?.userId, "input =", input, error);
+    console.error(
+      "[Buy] Error handling buy amount input for userId:",
+      session?.userId,
+      "input =",
+      input,
+      error
+    );
     session.currentAction = undefined;
     session.tempData = {};
     await session.save();
@@ -345,7 +559,12 @@ export async function handleBuyConfirmation(
     if (!confirmed) {
       session.currentAction = undefined;
       session.tempData = {};
-      console.log("[Buy] Saving session: userId =", session.userId, "currentAction =", session.currentAction);
+      console.log(
+        "[Buy] Saving session: userId =",
+        session.userId,
+        "currentAction =",
+        session.currentAction
+      );
       await session.save();
       return { response: "Trade cancelled." };
     }
@@ -364,6 +583,28 @@ export async function handleBuyConfirmation(
       };
     }
 
+    if (
+      !session.tempData ||
+      !session.tempData.fromToken ||
+      !session.tempData.toToken ||
+      !session.tempData.fromAmount ||
+      !session.tempData.fromDecimals ||
+      !session.tempData.walletAddress
+    ) {
+      console.warn(
+        "[Buy] Invalid session.tempData for buy_confirm, userId:",
+        userId,
+        "tempData:",
+        session.tempData
+      );
+      session.currentAction = undefined;
+      session.tempData = {};
+      await session.save();
+      return {
+        response: "❌ Invalid session state. Please restart with /buy.",
+      };
+    }
+
     const {
       fromToken,
       toToken,
@@ -371,10 +612,20 @@ export async function handleBuyConfirmation(
       fromDecimals,
       walletAddress,
       gasPrice,
-    } = session.tempData!;
+    } = session.tempData;
     const slippage = session.settings?.slippage.toString() || "1.0";
     const formattedFromAmount = formatUnits(BigInt(fromAmount), fromDecimals);
 
+    console.log(
+      "[Buy] Fetching swap for userId:",
+      userId,
+      "fromToken:",
+      fromToken,
+      "toToken:",
+      toToken,
+      "amount:",
+      formattedFromAmount
+    );
     const swap = await getSwap(
       fromToken,
       toToken,
@@ -384,6 +635,7 @@ export async function handleBuyConfirmation(
       walletAddress
     );
 
+    console.log("[Buy] Executing transaction for userId:", userId);
     const receipt = await executeTransaction(wallet, {
       to: swap.data.to,
       data: swap.data.data,
@@ -391,6 +643,12 @@ export async function handleBuyConfirmation(
       gasPrice: swap.data.gasPrice,
     });
 
+    console.log(
+      "[Buy] Saving transaction for userId:",
+      userId,
+      "txHash:",
+      receipt.transactionHash
+    );
     saveTransaction(
       receipt.transactionHash,
       userId,
@@ -399,21 +657,26 @@ export async function handleBuyConfirmation(
       toToken,
       fromAmount,
       receipt.status,
-      session.tempData!.toAmount,
+      session.tempData.toAmount,
       receipt.gasUsed
     );
 
     session.currentAction = undefined;
     session.tempData = {};
-    console.log("[Buy] Saving session: userId =", userId, "currentAction =", session.currentAction);
+    console.log(
+      "[Buy] Saving session: userId =",
+      userId,
+      "currentAction =",
+      session.currentAction
+    );
     await session.save();
 
     if (receipt.status === "success") {
       return {
         response: `✅ Transaction Successful\n\nYou bought ${formatUnits(
-          session.tempData!.toAmount,
-          session.tempData!.toDecimals
-        )} ${session.tempData!.toSymbol}\nPrice impact: ${
+          session.tempData.toAmount,
+          session.tempData.toDecimals
+        )} ${session.tempData.toSymbol}\nPrice impact: ${
           swap.data.price_impact
         }\nView on Block Explorer: https://basescan.org/tx/${
           receipt.transactionHash
@@ -429,10 +692,19 @@ export async function handleBuyConfirmation(
       };
     }
   } catch (error) {
-    console.error("[Buy] Error processing buy confirmation for userId:", session?.userId, error);
+    console.error(
+      "[Buy] Error processing buy confirmation for userId:",
+      session?.userId,
+      error
+    );
     session.currentAction = undefined;
     session.tempData = {};
-    console.log("[Buy] Saving session: userId =", session.userId, "currentAction =", session.currentAction);
+    console.log(
+      "[Buy] Saving session: userId =",
+      session.userId,
+      "currentAction =",
+      session.currentAction
+    );
     await session.save();
     return {
       response:
