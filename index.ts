@@ -135,9 +135,9 @@ app.use(
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+     secure: process.env.NODE_ENV === "production" ? true : false, // Allow non-HTTPS in dev
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      path: "/",
+       path: "/",
       domain: process.env.NODE_ENV === "production" ? undefined : "localhost",
     },
   })
