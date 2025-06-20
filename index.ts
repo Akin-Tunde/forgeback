@@ -768,17 +768,17 @@ app.post(
       : undefined;
     let result;
 
-    console.log(`[Callback] Received: callback=${callback}, args=${JSON.stringify(args)}, currentAction=${session.currentAction}, userId=${session.userId}, walletAddress=${session.walletAddress}, sessionId=${req.sessionID}, wallet=${wallet ? 'exists' : 'undefined'}, tempData=${JSON.stringify(session.tempData)}`);
+    console.log(`[Callback] Received: callback=${callback}, args=${JSON.stringify(args)}, currentAction=${session.currentAction}, userId=${session.userId}, walletAddress=${session.walletAddress}, sessionId=${req.sessionID}, wallet=${wallet ? 'exists' : 'undefined'}, tempData=${JSON.stringify(session.tempData)}, cookies=${JSON.stringify(req.cookies)}`);
 
     try {
       // Early validation for session state
       if (!session.userId) {
-        console.error("[Callback] No userId in session, fid:", req.body.fid);
+        console.error("[Callback] No userId in session, fid:", req.body.fid, "sessionId:", req.sessionID);
         result = { response: "❌ Session expired. Please restart with /start." };
       } else if (session.currentAction === "buy_amount" && args && (callback === null || callback === undefined)) {
         console.log("[Callback] Handling buy amount input:", args, "for userId:", session.userId);
         if (!session.tempData || !session.tempData.toToken || !session.tempData.walletAddress || !session.tempData.balance) {
-          console.warn("[Callback] Invalid session.tempData for buy_amount, userId:", session.userId, "tempData:", session.tempData);
+          console.warn("[Callback] Invalid session.tempData for buy_amount, userId:", session.userId, "tempData:", session.tempData, "sessionId:", req.sessionID);
           session.currentAction = undefined;
           session.tempData = {};
           await session.save();
@@ -796,7 +796,6 @@ app.post(
         result = await handleCustomTokenInput({ session, args, wallet });
       } else if (callback === null && args && isValidAddress(args)) {
         console.warn("[Callback] Unexpected null callback with address args:", args, "currentAction:", session.currentAction);
-        // Only set buy_custom_token if no relevant action is active
         if (!session.currentAction || session.currentAction === "buy_token") {
           console.log("[Callback] Setting currentAction to buy_custom_token for address input:", args);
           session.currentAction = "buy_custom_token";
@@ -815,7 +814,7 @@ app.post(
         console.warn(`[Callback] Fallback handling confirmation: ${callback}, userId=${session.userId}, currentAction=${session.currentAction}`);
         result = await handleExportConfirmation(
           { session, wallet },
-          callback === "confirm_yes" || callback === "Confirm"
+          callback === "confirm_yes" || callback === Confirm"
         );
         session.currentAction = undefined;
         await session.save();
@@ -890,12 +889,12 @@ app.post(
           response: "Operation cancelled. Your existing wallet remains unchanged.",
         };
       } else {
-        console.error("[Callback] Unknown callback:", callback, "args:", args, "currentAction:", session.currentAction);
-        // Fallback: Treat numeric args as buy_amount if currentAction is buy_amount
-        if (session.currentAction === "buy_amount" && args && !isNaN(parseFloat(args))) {
+        console.error("[Callback] Unknown callback:", callback, "args:", args, "currentAction:", session.currentAction, "sessionId:", req.sessionID);
+        // Fallback: Treat numeric args as buy_amount if numeric
+        if (args && !isNaN(parseFloat(args))) {
           console.warn("[Callback] Fallback: Treating args as buy_amount input:", args, "for userId:", session.userId);
-          if (!session.tempData || !session.tempData.toToken || !session.tempData.walletAddress || !session.tempData.balance) {
-            console.warn("[Callback] Invalid session.tempData in fallback, userId:", session.userId, "tempData:", session.tempData);
+          if (session.currentAction !== "buy_amount" || !session.tempData || !session.tempData.toToken || !session.tempData.walletAddress || !session.tempData.balance) {
+            console.warn("[Callback] Invalid session state in fallback, userId:", session.userId, "currentAction:", session.currentAction, "tempData:", session.tempData);
             session.currentAction = undefined;
             session.tempData = {};
             await session.save();
@@ -908,12 +907,12 @@ app.post(
         }
       }
     } catch (error) {
-      console.error("[Callback] Error processing callback:", callback, "args:", args, error);
+      console.error("[Callback] Error processing callback:", callback, "args:", args, "error:", error, "sessionId:", req.sessionID);
       result = { response: "❌ An error occurred. Please try again later." };
     }
 
     await session.save();
-    console.log("[Callback] Session saved for userId:", session.userId);
+    console.log("[Callback] Session saved for userId:", session.userId, "sessionId:", req.sessionID);
     res.json(result);
     return;
   }
