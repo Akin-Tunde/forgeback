@@ -814,7 +814,7 @@ app.post(
         console.warn(`[Callback] Fallback handling confirmation: ${callback}, userId=${session.userId}, currentAction=${session.currentAction}`);
         result = await handleExportConfirmation(
           { session, wallet },
-          callback === "confirm_yes" || callback === Confirm"
+          callback === "confirm_yes" || callback === "Confirm" || callback === "confirm_no"
         );
         session.currentAction = undefined;
         await session.save();
