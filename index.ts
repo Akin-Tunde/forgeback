@@ -2,6 +2,7 @@ import express, { Request, Response, NextFunction } from "express";
 import session from "express-session";
 import dotenv from "dotenv";
 import cors from "cors";
+import { SupabaseSessionStore, sessionStore } from "./src/lib/database"; 
 
 import { initDatabase, closeDatabase } from "./src/lib/database";
 import { verifyEncryptionKey } from "./src/lib/encryption";
@@ -104,26 +105,57 @@ const app = express();
 // ✅ Use CORS middleware BEFORE anything else
 app.use(
   cors({
-    origin: [
+    origin: (origin, callback) => {
+      const allowedOrigins = [
       "https://mini-testf.netlify.app",
       "http://localhost:3000",
       "http://localhost:5173", // Add this if your frontend runs on port 5173
-    ],
-    credentials: true,
+    ]
+    if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, origin || "*");
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+    credentials: true, // Allow cookies to be sent
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
 // Middleware
 app.use(express.json());
+
 app.use(
   session({
-    secret: process.env.SESSION_SECRET,
+    store: sessionStore,
+    secret: process.env.SESSION_SECRET!,
     resave: false,
-    saveUninitialized: true,
-    cookie: { secure: process.env.NODE_ENV === "production",
-      maxAge: 24 * 60 * 60 * 1000, },
+    saveUninitialized: false,
+    cookie: {
+      maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      path: "/",
+      domain: process.env.NODE_ENV === "production" ? undefined : "localhost",
+    },
   })
 );
+
+// Log Set-Cookie headers for debugging
+app.use((req, res, next) => {
+  const originalSend = res.send;
+  res.send = function (body) {
+    const setCookie = res.getHeader("Set-Cookie");
+    if (setCookie) {
+      console.log("[Response] Set-Cookie:", setCookie, "for path:", req.path);
+    }
+    return originalSend.call(this, body);
+  };
+  next();
+});
+
 app.get("/", (req, res) => {
   res.send("🔧 ForgeBot backend is running.");
 });
