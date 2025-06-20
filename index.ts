@@ -775,7 +775,7 @@ app.post(
       if (!session.userId) {
         console.error("[Callback] No userId in session, fid:", req.body.fid);
         result = { response: "❌ Session expired. Please restart with /start." };
-      } else if (session.currentAction === "buy_amount" && args && !callback) {
+      } else if (session.currentAction === "buy_amount" && args && (callback === null || callback === undefined)) {
         console.log("[Callback] Handling buy amount input:", args, "for userId:", session.userId);
         if (!session.tempData || !session.tempData.toToken || !session.tempData.walletAddress || !session.tempData.balance) {
           console.warn("[Callback] Invalid session.tempData for buy_amount, userId:", session.userId, "tempData:", session.tempData);
@@ -899,7 +899,13 @@ app.post(
         };
       } else {
         console.error("[Callback] Unknown callback:", callback, "args:", args, "currentAction:", session.currentAction);
-        result = { response: "❌ Unknown callback or invalid session state. Please restart with /buy." };
+        // Fallback: Treat numeric args as buy_amount if currentAction is buy_amount
+        if (session.currentAction === "buy_amount" && args && !isNaN(parseFloat(args))) {
+          console.warn("[Callback] Fallback: Treating args as buy_amount input:", args, "for userId:", session.userId);
+          result = await handleBuyAmountInput({ session, args, wallet });
+        } else {
+          result = { response: "❌ Unknown callback or invalid session state. Please restart with /buy." };
+        }
       }
     } catch (error) {
       console.error("[Callback] Error processing callback:", callback, "args:", args, error);
