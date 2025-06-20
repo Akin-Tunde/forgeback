@@ -197,6 +197,8 @@ export async function handleBuyAmountInput(context: CommandContext): Promise<{
   const { session, args: input, wallet } = context;
   try {
     const userId = session.userId;
+    console.log("[Buy] handleBuyAmountInput: userId =", userId, "input =", input, "currentAction =", session.currentAction, "tempData =", JSON.stringify(session.tempData));
+
     if (!userId || !input) {
       console.error("[Buy] Invalid request: userId =", userId, "input =", input);
       return { response: "❌ Invalid request. Please try again." };
@@ -211,19 +213,20 @@ export async function handleBuyAmountInput(context: CommandContext): Promise<{
       return { response: "❌ Invalid session state. Please restart with /buy." };
     }
 
+    // Validate wallet
     if (!wallet) {
       console.warn("[Buy] Wallet not found, userId:", userId);
       session.currentAction = undefined;
       session.tempData = {};
       await session.save();
-      return { response: "❌ Wallet not found. Please restart with /buy." };
+      return { response: "❌ Wallet not found. Please create or import a wallet and restart with /buy." };
     }
 
     if (!isValidAmount(input)) {
       console.warn("[Buy] Invalid amount format:", input);
       return {
         response:
-          "❌ Invalid amount format. Please enter a positive number (e.g., 0.1).\n\nTry again or type /cancel to abort.",
+          "❌ Invalid amount format. Please enter a positive number (e.g., 0.0000002).\n\nTry again or type /cancel to abort.",
       };
     }
 
@@ -264,7 +267,7 @@ export async function handleBuyAmountInput(context: CommandContext): Promise<{
     );
 
     if (!quote || !quote.data) {
-      console.error("[Buy] Failed to fetch quote, userId:", userId);
+      console.error("[Buy] Failed to fetch quote, userId:", userId, "amountInput:", amountInput);
       return { response: "❌ Failed to fetch swap quote. Please try again." };
     }
 
@@ -278,7 +281,7 @@ export async function handleBuyAmountInput(context: CommandContext): Promise<{
     );
 
     session.currentAction = "buy_confirm";
-    console.log("[Buy] Saving session: userId =", userId, "currentAction =", session.currentAction, "tempData =", session.tempData);
+    console.log("[Buy] Saving session: userId =", userId, "currentAction =", session.currentAction, "tempData =", JSON.stringify(session.tempData));
     await session.save();
     console.log("[Buy] Session saved: userId =", userId, "currentAction =", session.currentAction);
 
