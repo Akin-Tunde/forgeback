@@ -51,7 +51,6 @@ export const balanceHandler = {
               symbol: token.symbol,
               decimals: token.decimals,
               balance: token.balance,
-              name: token.name,
             });
           }
         }

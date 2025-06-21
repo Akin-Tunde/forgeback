@@ -2,15 +2,11 @@ import express, { Request, Response, NextFunction } from "express";
 import session from "express-session";
 import dotenv from "dotenv";
 import cors from "cors";
-import { SupabaseSessionStore, sessionStore } from "./src/lib/database";
+import { SupabaseSessionStore, sessionStore } from "./src/lib/database"; 
 
 import { initDatabase, closeDatabase } from "./src/lib/database";
 import { verifyEncryptionKey } from "./src/lib/encryption";
-import {
-  ExtendedSession,
-  CommandContext,
-  SessionData,
-} from "./src/types/commands";
+import {ExtendedSession, CommandContext, SessionData } from "./src/types/commands";
 import { verifyFarcasterSignature } from "./src/lib/farcaster";
 import { getWallet } from "./src/lib/token-wallet"; // Import getWallet
 
@@ -56,7 +52,7 @@ import {
   handleWithdrawConfirmation,
 } from "./src/commands/withdraw";
 import { isValidAddress } from "./src/utils/validators";
-import { NATIVE_TOKEN_ADDRESS } from "./src/utils/constants";
+
 
 // Extend express-session to include SessionData
 declare module "express-session" {
@@ -111,11 +107,11 @@ app.use(
   cors({
     origin: (origin, callback) => {
       const allowedOrigins = [
-        "https://mini-testf.netlify.app",
-        "http://localhost:3000",
-        "http://localhost:5173", // Add this if your frontend runs on port 5173
-      ];
-      if (!origin || allowedOrigins.includes(origin)) {
+      "https://mini-testf.netlify.app",
+      "http://localhost:3000",
+      "http://localhost:5173", // Add this if your frontend runs on port 5173
+    ]
+    if (!origin || allowedOrigins.includes(origin)) {
         callback(null, origin || "*");
       } else {
         callback(new Error("Not allowed by CORS"));
@@ -139,9 +135,9 @@ app.use(
     cookie: {
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production" ? true : false,
+     secure: process.env.NODE_ENV === "production" ? true : false, 
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      path: "/",
+       path: "/",
       domain: process.env.NODE_ENV === "production" ? undefined : "localhost",
     },
   })
@@ -614,115 +610,72 @@ app.post(
   ensureSessionData,
   async (req: Request, res: Response): Promise<void> => {
     const { args } = req.body;
-    const session = req.session as ExtendedSession;
-    const wallet = session.userId
-      ? (await getWallet(session.userId)) || undefined
+    const wallet = req.session.userId
+      ? (await getWallet(req.session.userId)) || undefined
       : undefined;
     let result;
-    console.log(
-      `[Input] Session: userId=${session.userId}, currentAction=${
-        session.currentAction
-      }, args=${args}, sessionId=${req.sessionID}, tempData=${JSON.stringify(
-        session.tempData
-      )}`
-    );
-
-    if (!session.userId) {
-      console.error("[Input] No userId in session");
-      result = { response: "❌ Session expired. Please restart with /start." };
-      res.json(result);
-      return;
-    }
-
-    switch (session.currentAction) {
+    switch (req.session.currentAction) {
       case "import_wallet":
-        result = await handlePrivateKeyInput({ session, wallet, args });
+        result = await handlePrivateKeyInput({
+          session: req.session as ExtendedSession,
+          wallet, // Though likely not used by this specific handler
+          args,
+        });
         break;
       case "buy_custom_token":
-        result = await handleCustomTokenInput({ session, wallet, args });
+        result = await handleCustomTokenInput({
+          session: req.session as ExtendedSession,
+          wallet,
+          args,
+        });
         break;
       case "buy_amount":
-        if (
-          !session.tempData?.toToken ||
-          !session.tempData?.walletAddress ||
-          !session.tempData?.balance
-        ) {
-          console.warn(
-            "[Input] Invalid tempData for buy_amount, userId:",
-            session.userId,
-            "tempData:",
-            session.tempData
-          );
-          session.currentAction = undefined;
-          session.tempData = {};
-          await session.save();
-          result = {
-            response: "❌ Invalid session state. Please restart with /buy.",
-          };
-        } else {
-          result = await handleBuyAmountInput({ session, wallet, args });
-        }
+        result = await handleBuyAmountInput({
+          session: req.session as ExtendedSession,
+          wallet,
+          args,
+        });
         break;
       case "sell_custom_token":
-        result = await handleSellCustomTokenInput({ session, wallet, args });
+        result = await handleSellCustomTokenInput({
+          session: req.session as ExtendedSession,
+          wallet,
+          args,
+        });
         break;
       case "sell_amount":
-        result = await handleSellAmountInput({ session, wallet, args });
+        result = await handleSellAmountInput({
+          session: req.session as ExtendedSession,
+          wallet,
+          args,
+        });
         break;
       case "withdraw_address":
-        if (!args || !isValidAddress(args)) {
-          result = {
-            response:
-              "❌ Invalid address. Please provide a valid Ethereum address.",
-          };
-        } else {
-          result = await handleWithdrawAddress({ session, wallet, args });
-        }
+        result = await handleWithdrawAddress({
+          session: req.session as ExtendedSession,
+          wallet,
+          args,
+        });
         break;
       case "withdraw_amount":
-        result = await handleWithdrawAmount({ session, wallet, args });
+        result = await handleWithdrawAmount({
+          session: req.session as ExtendedSession,
+          wallet,
+          args,
+        });
         break;
       default:
         if (isValidAddress(args)) {
-          console.log(
-            "[Input] Direct token address input detected, initiating buy flow:",
-            args
-          );
-          session.currentAction = "buy_custom_token";
-          session.tempData = {
-            ...session.tempData,
-            fromToken: NATIVE_TOKEN_ADDRESS,
-            fromSymbol: "ETH",
-            fromDecimals: 18,
-            walletAddress: wallet?.address,
-          };
-          await session.save();
-          result = await handleCustomTokenInput({ session, wallet, args });
-        } else if (args && !isNaN(parseFloat(args)) && parseFloat(args) > 0) {
-          console.warn(
-            "[Input] Numeric input with no valid currentAction:",
-            args
-          );
-          if (
-            session.tempData?.toToken &&
-            session.tempData?.walletAddress &&
-            session.tempData?.balance
-          ) {
-            console.log("[Input] Retrying buy_amount with args:", args);
-            session.currentAction = "buy_amount";
-            await session.save();
-            result = await handleBuyAmountInput({ session, wallet, args });
-          } else {
-            result = {
-              response:
-                "❌ Invalid session state for amount input. Please restart with /buy or paste a token address.",
-            };
-          }
+          req.session.currentAction = "buy_custom_token"; // Prompt for buy flow
+          result = await handleCustomTokenInput({
+            session: req.session as ExtendedSession,
+            wallet,
+            args,
+          });
         } else {
-          console.warn("[Input] Unknown input:", args);
           result = {
             response:
-              "❌ Invalid action. Please use a command to start a new action or paste a token address to buy:\n\n" +
+              "🤖 Hello! Here are some things you can do:\n\n" +
               "/wallet - View your wallet\n" +
               "/balance - Check your balances\n" +
               "/buy - Buy tokens with ETH\n" +
@@ -744,7 +697,6 @@ app.post(
           };
         }
     }
-    await session.save();
     res.json(result);
     return;
   }
@@ -762,34 +714,18 @@ app.post(
       : undefined;
     let result;
 
-    console.log(
-      `[Command] Received: command=${command}, args=${JSON.stringify(
-        args
-      )}, currentAction=${session.currentAction}, userId=${
-        session.userId
-      }, fid=${fid}`
-    );
+    console.log(`[Command] Received: command=${command}, args=${JSON.stringify(args)}, currentAction=${session.currentAction}, userId=${session.userId}, fid=${fid}`);
 
     try {
       if (session.currentAction === "buy_custom_token" && command) {
-        console.log(
-          "[Command] Handling buy_custom_token input as command:",
-          command
-        );
+        console.log("[Command] Handling buy_custom_token input as command:", command);
         result = await handleCustomTokenInput({ session, args: command });
       } else if (session.currentAction === "buy_amount" && command) {
         console.log("[Command] Handling buy_amount input as command:", command);
         result = await handleBuyAmountInput({ session, args: command });
       } else if (session.currentAction === "import_wallet" && command) {
-        console.log(
-          "[Command] Handling private key input as command:",
-          command
-        );
-        result = await handlePrivateKeyInput({
-          session,
-          args: command,
-          wallet,
-        });
+        console.log("[Command] Handling private key input as command:", command);
+        result = await handlePrivateKeyInput({ session, args: command, wallet });
       } else {
         switch (command) {
           case "/start":
@@ -836,9 +772,7 @@ app.post(
             break;
           default:
             console.error("[Command] Unknown command:", command);
-            result = {
-              response: `Unknown command: ${command}\nPlease try /help.`,
-            };
+            result = { response: `Unknown command: ${command}\nPlease try /help.` };
             break;
         }
       }
@@ -857,6 +791,7 @@ app.post(
 app.post(
   "/api/callback",
   authenticateFarcaster,
+  ensureSessionData,
   async (req: Request, res: Response): Promise<void> => {
     const { callback, args } = req.body;
     const session = req.session as ExtendedSession;
@@ -865,138 +800,61 @@ app.post(
       : undefined;
     let result;
 
-    console.log(
-      `[Callback] Received: callback=${callback}, args=${JSON.stringify(
-        args
-      )}, currentAction=${session.currentAction}, userId=${
-        session.userId
-      }, walletAddress=${session.walletAddress}, sessionId=${
-        req.sessionID
-      }, wallet=${wallet ? "exists" : "undefined"}, tempData=${JSON.stringify(
-        session.tempData
-      )}, cookies=${JSON.stringify(req.cookies)}`
-    );
+    console.log(`[Callback] Received: callback=${callback}, args=${JSON.stringify(args)}, currentAction=${session.currentAction}, userId=${session.userId}, walletAddress=${session.walletAddress}, sessionId=${req.sessionID}, wallet=${wallet ? 'exists' : 'undefined'}, tempData=${JSON.stringify(session.tempData)}, cookies=${JSON.stringify(req.cookies)}`);
 
     try {
       // Early validation for session state
       if (!session.userId) {
-        console.error(
-          "[Callback] No userId in session, fid:",
-          req.body.fid,
-          "sessionId:",
-          req.sessionID
-        );
-        result = {
-          response: "❌ Session expired. Please restart with /start.",
-        };
-      } else if (
-        session.currentAction === "buy_amount" &&
-        args &&
-        (callback === null || callback === undefined)
-      ) {
-        console.log(
-          "[Callback] Handling buy amount input:",
-          args,
-          "for userId:",
-          session.userId
-        );
-        if (
-          !session.tempData ||
-          !session.tempData.toToken ||
-          !session.tempData.walletAddress ||
-          !session.tempData.balance
-        ) {
-          console.warn(
-            "[Callback] Invalid session.tempData for buy_amount, userId:",
-            session.userId,
-            "tempData:",
-            session.tempData,
-            "sessionId:",
-            req.sessionID
-          );
+        console.error("[Callback] No userId in session, fid:", req.body.fid, "sessionId:", req.sessionID);
+        result = { response: "❌ Session expired. Please restart with /start." };
+      } else if (session.currentAction === "buy_amount" && args && (callback === null || callback === undefined)) {
+        console.log("[Callback] Handling buy amount input:", args, "for userId:", session.userId);
+        if (!session.tempData || !session.tempData.toToken || !session.tempData.walletAddress || !session.tempData.balance) {
+          console.warn("[Callback] Invalid session.tempData for buy_amount, userId:", session.userId, "tempData:", session.tempData, "sessionId:", req.sessionID);
           session.currentAction = undefined;
           session.tempData = {};
           await session.save();
-          result = {
-            response: "❌ Invalid session state. Please restart with /buy.",
-          };
+          result = { response: "❌ Invalid session state. Please restart with /buy." };
         } else {
           result = await handleBuyAmountInput({ session, args, wallet });
         }
-      } else if (
-        session.currentAction === "buy_confirm" &&
-        (callback === "confirm_yes" || callback === "confirm_no")
-      ) {
-        console.log(
-          "[Callback] Handling buy confirmation:",
-          callback,
-          "for userId:",
-          session.userId
-        );
-        result = await handleBuyConfirmation(
-          { session, wallet },
-          callback === "confirm_yes"
-        );
+      } else if (session.currentAction === "buy_confirm" && (callback === "confirm_yes" || callback === "confirm_no")) {
+        console.log("[Callback] Handling buy confirmation:", callback, "for userId:", session.userId);
+        result = await handleBuyConfirmation({ session, wallet }, callback === "confirm_yes");
         session.currentAction = undefined;
         await session.save();
-      } else if (
-        session.currentAction === "buy_custom_token" &&
-        args &&
-        isValidAddress(args)
-      ) {
-        console.log(
-          "[Callback] Handling custom token input:",
-          args,
-          "for userId:",
-          session.userId
-        );
+      } else if (session.currentAction === "buy_custom_token" && args && isValidAddress(args)) {
+        console.log("[Callback] Handling custom token input:", args, "for userId:", session.userId);
         result = await handleCustomTokenInput({ session, args, wallet });
-      } else if (
-        session.currentAction === "withdraw_address" &&
-        args &&
-        isValidAddress(args)
-      ) {
-        console.log(
-          "[Callback] Handling withdraw address input:",
-          args,
-          "for userId:",
-          session.userId
-        );
-        result = await handleWithdrawAddress({ session, args, wallet });
-      } else if (session.currentAction === "withdraw_amount" && args) {
-        console.log(
-          "[Callback] Handling withdraw amount input:",
-          args,
-          "for userId:",
-          session.userId
-        );
-        result = await handleWithdrawAmount({ session, args, wallet });
-      } else if (
-        session.currentAction === "export_wallet" &&
-        (callback === "confirm_yes" ||
-          callback === "Confirm" ||
-          callback === "confirm_no")
-      ) {
-        console.log(
-          `[Callback] Handling export confirmation: ${callback}, userId=${session.userId}`
-        );
+      } else if (callback === null && args && isValidAddress(args)) {
+        console.warn("[Callback] Unexpected null callback with address args:", args, "currentAction:", session.currentAction);
+        if (!session.currentAction || session.currentAction === "buy_token") {
+          console.log("[Callback] Setting currentAction to buy_custom_token for address input:", args);
+          session.currentAction = "buy_custom_token";
+          await session.save();
+        }
+        result = await handleCustomTokenInput({ session, args, wallet });
+      } else if (session.currentAction === "export_wallet" && (callback === "confirm_yes" || callback === "Confirm" || callback === "confirm_no")) {
+        console.log(`[Callback] Handling export confirmation: ${callback}, userId=${session.userId}`);
         result = await handleExportConfirmation(
           { session, wallet },
           callback === "confirm_yes" || callback === "Confirm"
         );
         session.currentAction = undefined;
         await session.save();
-      } else if (callback === "settings_slippage") {
-        console.log(
-          "[Callback] Handling settings_slippage for userId:",
-          session.userId
+      } else if (callback === "confirm_yes" || callback === "Confirm" || callback === "confirm_no") {
+        console.warn(`[Callback] Fallback handling confirmation: ${callback}, userId=${session.userId}, currentAction=${session.currentAction}`);
+        result = await handleExportConfirmation(
+          { session, wallet },
+          callback === "confirm_yes" || callback === "Confirm" || callback === "confirm_no"
         );
+        session.currentAction = undefined;
+        await session.save();
+      } else if (callback === "settings_slippage") {
+        console.log("[Callback] Handling settings_slippage for userId:", session.userId);
         result = await handleSettingsOption({ session }, "slippage");
       } else if (callback === "settings_gasPriority") {
-        console.log(
-          "[Callback] Handling settings_gasPriority for userId:",
-          session.userId
-        );
+        console.log("[Callback] Handling settings_gasPriority for userId:", session.userId);
         result = await handleSettingsOption({ session }, "gasPriority");
       } else if (callback?.startsWith("slippage_")) {
         console.log("[Callback] Processing slippage selection:", callback);
@@ -1004,23 +862,11 @@ app.post(
         result = await updateSlippage({ session }, value);
       } else if (callback?.startsWith("gasPriority_")) {
         console.log("[Callback] Processing gas priority selection:", callback);
-        const priority = callback.replace("gasPriority_", "") as
-          | "low"
-          | "medium"
-          | "high";
+        const priority = callback.replace("gasPriority_", "") as "low" | "medium" | "high";
         result = await updateGasPriority({ session }, priority);
       } else if (["USDC", "DAI", "WBTC", "custom"].includes(callback)) {
-        console.log(
-          "[Callback] Handling token selection:",
-          callback,
-          "for userId:",
-          session.userId
-        );
-        result = await handleTokenSelection({
-          session,
-          args: callback,
-          wallet,
-        });
+        console.log("[Callback] Handling token selection:", callback, "for userId:", session.userId);
+        result = await handleTokenSelection({ session, args: callback, wallet });
       } else if (callback === "import_wallet" && args) {
         console.log("[Callback] Processing private key input with args:", args);
         if (session.currentAction !== "import_wallet") {
@@ -1054,20 +900,16 @@ app.post(
         result = await depositHandler.handler({ session, wallet });
       } else if (callback === "withdraw") {
         console.log("[Callback] Handling withdraw");
-        result = await withdrawHandler.handler({ session, wallet });
+        result = await withdrawHandler.handler({ session });
       } else if (callback === "export_key") {
-        console.log(
-          "[Callback] Handling export_key for userId:",
-          session.userId
-        );
+        console.log("[Callback] Handling export_key for userId:", session.userId);
         result = await exportHandler.handler({ session, wallet });
       } else if (callback === "confirm_create_wallet") {
         session.walletAddress = undefined;
         result = await createHandler.handler({ session });
       } else if (callback === "cancel_create_wallet") {
         result = {
-          response:
-            "Operation cancelled. Your existing wallet remains unchanged.",
+          response: "Operation cancelled. Your existing wallet remains unchanged.",
         };
       } else if (callback === "confirm_import_wallet") {
         session.walletAddress = undefined;
@@ -1076,80 +918,33 @@ app.post(
       } else if (callback === "cancel_import_wallet") {
         session.currentAction = undefined;
         result = {
-          response:
-            "Operation cancelled. Your existing wallet remains unchanged.",
+          response: "Operation cancelled. Your existing wallet remains unchanged.",
         };
       } else {
-        console.error(
-          "[Callback] Unknown callback:",
-          callback,
-          "args:",
-          args,
-          "currentAction:",
-          session.currentAction,
-          "sessionId:",
-          req.sessionID
-        );
+        console.error("[Callback] Unknown callback:", callback, "args:", args, "currentAction:", session.currentAction, "sessionId:", req.sessionID);
         // Fallback: Treat numeric args as buy_amount if numeric
         if (args && !isNaN(parseFloat(args))) {
-          console.warn(
-            "[Callback] Fallback: Treating args as buy_amount input:",
-            args,
-            "for userId:",
-            session.userId
-          );
-          if (
-            session.currentAction !== "buy_amount" ||
-            !session.tempData ||
-            !session.tempData.toToken ||
-            !session.tempData.walletAddress ||
-            !session.tempData.balance
-          ) {
-            console.warn(
-              "[Callback] Invalid session state in fallback, userId:",
-              session.userId,
-              "currentAction:",
-              session.currentAction,
-              "tempData:",
-              session.tempData
-            );
+          console.warn("[Callback] Fallback: Treating args as buy_amount input:", args, "for userId:", session.userId);
+          if (session.currentAction !== "buy_amount" || !session.tempData || !session.tempData.toToken || !session.tempData.walletAddress || !session.tempData.balance) {
+            console.warn("[Callback] Invalid session state in fallback, userId:", session.userId, "currentAction:", session.currentAction, "tempData:", session.tempData);
             session.currentAction = undefined;
             session.tempData = {};
             await session.save();
-            result = {
-              response: "❌ Invalid session state. Please restart with /buy.",
-            };
+            result = { response: "❌ Invalid session state. Please restart with /buy." };
           } else {
             result = await handleBuyAmountInput({ session, args, wallet });
           }
         } else {
-          result = {
-            response:
-              "❌ Unknown callback or invalid session state. Please restart with /buy.",
-          };
+          result = { response: "❌ Unknown callback or invalid session state. Please restart with /buy." };
         }
       }
     } catch (error) {
-      console.error(
-        "[Callback] Error processing callback:",
-        callback,
-        "args:",
-        args,
-        "error:",
-        error,
-        "sessionId:",
-        req.sessionID
-      );
+      console.error("[Callback] Error processing callback:", callback, "args:", args, "error:", error, "sessionId:", req.sessionID);
       result = { response: "❌ An error occurred. Please try again later." };
     }
 
     await session.save();
-    console.log(
-      "[Callback] Session saved for userId:",
-      session.userId,
-      "sessionId:",
-      req.sessionID
-    );
+    console.log("[Callback] Session saved for userId:", session.userId, "sessionId:", req.sessionID);
     res.json(result);
     return;
   }
@@ -1157,6 +952,7 @@ app.post(
 
 // Other imports and app setup remain unchanged
 
+// ... (rest of index.ts unchanged: other routes, server start, SIGINT handler)
 // Start server
 const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, () => {

@@ -354,7 +354,6 @@ export async function getTokenInfo(
         symbol: "ETH",
         decimals: 18,
         balance: "0",
-        name: "Ethereum"
       };
     }
 
@@ -381,7 +380,6 @@ export async function getTokenInfo(
         symbol: symbol as string,
         decimals: Number(decimals),
         balance: "0",
-        name: symbol,
       };
     } catch (contractError) {
       console.error("[getTokenInfo] Contract call failed for address:", tokenAddress, contractError);
