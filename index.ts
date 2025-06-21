@@ -788,6 +788,8 @@ app.post(
   }
 );
 
+
+
 // /api/callback route
 app.post(
   "/api/callback",
@@ -813,7 +815,7 @@ app.post(
       // Early validation for session state
       if (!session.userId) {
         console.error("[Callback] No userId in session, fid:", req.body.fid, "sessionId:", req.sessionID);
-        result = { response: "❌ Session expired. Please restart with /start." };
+        result = { response: "❌ Session expired. Please restart with /start.", buttons: [] };
       } else if (session.currentAction === "buy_amount" && args && (callback === null || callback === undefined)) {
         console.log("[Callback] Handling buy amount input:", args, "for userId:", session.userId);
         if (!session.tempData || !session.tempData.toToken || !session.tempData.walletAddress || !session.tempData.balance) {
@@ -821,7 +823,7 @@ app.post(
           session.currentAction = undefined;
           session.tempData = {};
           await session.save();
-          result = { response: "❌ Invalid session state. Please restart with /buy." };
+          result = { response: "❌ Invalid session state. Please restart with /buy.", buttons: [] };
         } else {
           result = await handleBuyAmountInput({ session, args, wallet });
         }
@@ -841,7 +843,7 @@ app.post(
           await session.save();
         }
         result = await handleCustomTokenInput({ session, args, wallet });
-      } else if (session.currentAction === "export_wallet" && (callback === "confirm_yes" || callback === "confirm_no")) {
+      } else if ((session.currentAction === "export_wallet" || !session.currentAction) && (callback === "confirm_yes" || callback === "confirm_no")) {
         console.log(`[Callback] Handling export confirmation: ${callback}, userId=${session.userId}`);
         result = await handleExportConfirmation(
           { session, wallet },
@@ -871,6 +873,7 @@ app.post(
         if (session.currentAction !== "import_wallet") {
           console.warn("[Callback] Setting currentAction to import_wallet");
           session.currentAction = "import_wallet";
+          await session.save();
         }
         result = await handlePrivateKeyInput({ session, args, wallet });
       } else if (session.currentAction === "import_wallet" && args) {
@@ -905,19 +908,26 @@ app.post(
         result = await exportHandler.handler({ session, wallet });
       } else if (callback === "confirm_create_wallet") {
         session.walletAddress = undefined;
+        await session.save();
         result = await createHandler.handler({ session });
       } else if (callback === "cancel_create_wallet") {
+        session.currentAction = undefined;
+        await session.save();
         result = {
           response: "Operation cancelled. Your existing wallet remains unchanged.",
+          buttons: [],
         };
       } else if (callback === "confirm_import_wallet") {
         session.walletAddress = undefined;
         console.log("[Callback] Confirming import wallet");
+        await session.save();
         result = await importHandler.handler({ session, wallet });
       } else if (callback === "cancel_import_wallet") {
         session.currentAction = undefined;
+        await session.save();
         result = {
           response: "Operation cancelled. Your existing wallet remains unchanged.",
+          buttons: [],
         };
       } else {
         console.error("[Callback] Unknown callback:", callback, "args:", args, "currentAction:", session.currentAction, "sessionId:", req.sessionID);
@@ -929,17 +939,17 @@ app.post(
             session.currentAction = undefined;
             session.tempData = {};
             await session.save();
-            result = { response: "❌ Invalid session state. Please restart with /buy." };
+            result = { response: "❌ Invalid session state. Please restart with /buy.", buttons: [] };
           } else {
             result = await handleBuyAmountInput({ session, args, wallet });
           }
         } else {
-          result = { response: "❌ Unknown callback or invalid session state. Please restart with /buy." };
+          result = { response: "❌ Unknown callback or invalid session state. Please restart with /buy.", buttons: [] };
         }
       }
     } catch (error) {
       console.error("[Callback] Error processing callback:", callback, "args:", args, "error:", error, "sessionId:", req.sessionID);
-      result = { response: "❌ An error occurred. Please try again later." };
+      result = { response: "❌ An error occurred. Please try again later.", buttons: [] };
     }
 
     await session.save();
@@ -950,7 +960,6 @@ app.post(
 );
 
 // ... rest of the code
-
 
 
 // Other imports and app setup remain unchanged
