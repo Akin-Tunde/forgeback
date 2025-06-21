@@ -788,6 +788,7 @@ app.post(
   }
 );
 
+// /api/callback route
 app.post(
   "/api/callback",
   authenticateFarcaster,
@@ -800,7 +801,13 @@ app.post(
       : undefined;
     let result;
 
-    console.log(`[Callback] Received: callback=${callback}, args=${JSON.stringify(args)}, currentAction=${session.currentAction}, userId=${session.userId}, walletAddress=${session.walletAddress}, sessionId=${req.sessionID}, wallet=${wallet ? 'exists' : 'undefined'}, tempData=${JSON.stringify(session.tempData)}, cookies=${JSON.stringify(req.cookies)}`);
+    console.log(
+      `[Callback] Received: callback=${callback}, args=${JSON.stringify(args)}, ` +
+      `currentAction=${session.currentAction}, userId=${session.userId}, ` +
+      `walletAddress=${session.walletAddress}, sessionId=${req.sessionID}, ` +
+      `wallet=${wallet ? 'exists' : 'undefined'}, tempData=${JSON.stringify(session.tempData)}, ` +
+      `cookies=${JSON.stringify(req.cookies)}`
+    );
 
     try {
       // Early validation for session state
@@ -834,19 +841,11 @@ app.post(
           await session.save();
         }
         result = await handleCustomTokenInput({ session, args, wallet });
-      } else if (session.currentAction === "export_wallet" && (callback === "confirm_yes" || callback === "Confirm" || callback === "confirm_no")) {
+      } else if (session.currentAction === "export_wallet" && (callback === "confirm_yes" || callback === "confirm_no")) {
         console.log(`[Callback] Handling export confirmation: ${callback}, userId=${session.userId}`);
         result = await handleExportConfirmation(
           { session, wallet },
-          callback === "confirm_yes" || callback === "Confirm"
-        );
-        session.currentAction = undefined;
-        await session.save();
-      } else if (callback === "confirm_yes" || callback === "Confirm" || callback === "confirm_no") {
-        console.warn(`[Callback] Fallback handling confirmation: ${callback}, userId=${session.userId}, currentAction=${session.currentAction}`);
-        result = await handleExportConfirmation(
-          { session, wallet },
-          callback === "confirm_yes" || callback === "Confirm" || callback === "confirm_no" || callback === "Cancel"
+          callback === "confirm_yes"
         );
         session.currentAction = undefined;
         await session.save();
@@ -949,6 +948,10 @@ app.post(
     return;
   }
 );
+
+// ... rest of the code
+
+
 
 // Other imports and app setup remain unchanged
 
